@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.9
+    container_name: siem-elasticsearch
+    environment:
+      - node.name=elasticsearch
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    networks:
+      - siem-network
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.17.9
+    container_name: siem-kibana
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+    networks:
+      - siem-network
+
+  redis:
+    image: redis:7.0-alpine
+    container_name: siem-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - siem-network
+
+  backend:
+    build: ./backend
+    container_name: siem-backend
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+    depends_on:
+      - redis
+      - elasticsearch
+    networks:
+      - siem-network
+
+  worker:
+    build: ./backend
+    container_name: siem-worker
+    command: python -m app.worker
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+    depends_on:
+      - redis
+      - elasticsearch
+    volumes:
+      - ./backend:/app
+    networks:
+      - siem-network
+
+volumes:
+  es_data:
+
+
+networks:
+  siem-network:
+    driver: bridge

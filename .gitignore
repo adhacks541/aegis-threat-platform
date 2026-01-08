@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+
+# Docker
+es_data/
+*.joblib
+!model.joblib # We might want to track the trained model or maybe not? usually not binary large files, but for this demo it's small. Let's exclude it to be safe and let them train it.
+# Actually, the user trained it, so let's ignore it to avoid large file issues if it grows.
+model.joblib
+
+# OS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/

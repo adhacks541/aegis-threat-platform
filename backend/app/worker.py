@@ -7,6 +7,7 @@ from app.services.normalization import normalization_service
 from app.services.enrichment import enrichment_service
 from app.services.detection_rules import rule_detector
 from app.services.detection_ml import ml_detector
+from app.services.correlation import correlation_service
 
 # Reuse connection logic or create new
 r = redis.Redis.from_url(settings.REDIS_URL, decode_responses=True)
@@ -72,7 +73,16 @@ def process_messages():
                                 log_entry['alerts'].append("ML Detection: Anomalous Pattern")
                                 print(f"ML ANOMALY detected: {log_entry.get('message')}")
 
-                            # 4. Index to ES
+                            # 4. Correlation (The Flex)
+                            incidents = correlation_service.process_event(log_entry)
+                            if incidents:
+                                if 'incidents' not in log_entry:
+                                    log_entry['incidents'] = []
+                                log_entry['incidents'].extend(incidents)
+                                log_entry['severity'] = 'CRITICAL'
+                                print(f"INCIDENT DETECTED: {incidents}")
+
+                            # 5. Index to ES
                             storage_service.index_log(log_entry)
                             print(f"Indexed log: {log_entry.get('timestamp')} - {log_entry.get('message')}")
                         

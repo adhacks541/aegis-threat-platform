@@ -18,3 +18,12 @@ model.joblib
 # IDE
 .vscode/
 .idea/
+
+# Frontend
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/build/
+frontend/dist/
+frontend/.DS_Store
+

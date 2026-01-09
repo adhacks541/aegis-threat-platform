@@ -1,93 +1,112 @@
-# 🛡️ Aegis – Intelligent SIEM & Intrusion Detection System
+# 🛡️ Aegis – Intelligent SIEM & Threat Response Platform
 
-**Aegis** is a next-generation Security Information and Event Management (SIEM) system geared towards modern threat detection. It combines traditional rule-based detection with unsupervised machine learning to identify both known attacks (Brute Force) and zero-day anomalies.
+**Aegis** is a production-grade Security Information and Event Management (SIEM) system built for modern threat detection. It unifies high-performance log ingestion, rule-based detection, unsupervised machine learning, and automated incident response into a single, scalable platform.
 
-## 🚀 Features
+![SOC Dashboard](dashboard_preview.png)
 
-- **🔥 Real-time Log Ingestion**: High-throughput ingestion via HTTP/Webhooks (FastAPI + Redis Streams).
-- **🧠 Hybrid Detection Engine**:
-    - **Rule-Based**: Instantly flags patterns like SSH Brute Force, Sudo failures, etc.
-    - **ML-Based**: Uses *Isolation Forest* to detect anomalous traffic patterns (e.g., unusual payload sizes, off-hours activity) that bypass static rules.
-- **🌍 Enrichment**: Automatically adds GeoIP context (Location, ISP) and User-Agent parsing to every log.
-- **⚡ Async Architecture**: Fully decoupled ingestion and processing pipeline using Redis and Python workers.
-- **📊 Modern Stack**: Built with Python 3.10+, FastAPI, Docker, Elasticsearch, and Redis.
+## 🚀 Key Features
+
+### 🧠 Advanced Detection Engine
+- **Hybrid Detection**: Combines traditional **Sigma-like rules** (for known threats like SSH Brute Force) with **Isolation Forest ML models** (for zero-day anomalies).
+- **Correlation Engine**: Stateful tracking of multi-stage attacks (e.g., Brute Force → Successful Login → Privilege Escalation) using Redis.
+- **Explainable AI**: Every ML anomaly comes with a human-readable explanation (e.g., "Anomalous Time of Day", "Unusual Message Size").
+
+### 🛡️ Automated Response (SOAR)
+- **Active Defense**: Automatically blocks IPs triggering Critical alerts or high risk scores (> 80).
+- **Dynamic Risk Scoring**: Calculates risk based on Alert Severity + ML Confidence + Correlation Context.
+- **Fail-Safes**: Built-in whitelisting and auto-expiration of blocks to prevent self-lockout.
+
+### 📊 SOC Dashboard
+- **Real-Time Monitoring**: Live feed of Logs, Alerts, and Incidents via modern Next.js UI.
+- **Investigation**: Deep dive into raw logs with enrichment context (GeoIP, User-Agent).
+- **Incident Management**: Track correlated attack chains.
+
+### ⚡ High-Performance Architecture
+- **Ingestion**: FastAPI + Redis Streams for buffering high-throughput traffic.
+- **Enrichment**: Asynchronous Worker pipeline adds Context (GeoIP, Threat Intel) to every log.
+- **Storage**: Elasticsearch with Index Lifecycle Management (ILM) for efficient hot-warm-cold storage.
 
 ## 🛠️ Tech Stack
 
-- **Backend**: Python (FastAPI)
-- **Queue**: Redis Streams
-- **Database**: Elasticsearch (Log Storage), Redis (State/Caching)
-- **ML**: Scikit-Learn (Isolation Forest)
-- **DevOps**: Docker Compose
+| Component | Technology | Purpose |
+| :--- | :--- | :--- |
+| **Frontend** | Next.js 14, React, Tailwind | SOC Dashboard |
+| **Backend API** | Python (FastAPI) | Log Ingestion & Query API |
+| **Processing** | Python Async Workers | ETL, Detection, Correlation |
+| **Stream Buffer** | Redis Streams | Decouples ingestion from processing |
+| **State Store** | Redis | Risk scoring, Session tracking, Blocking |
+| **Log Storage** | Elasticsearch 8.x | Search & Analytics |
+| **ML** | Scikit-Learn | Unsupervised Anomaly Detection |
 
 ## ⚡ Quick Start
 
 ### Prerequisites
 - Docker & Docker Compose
-- Python 3.9+ (for local testing scripts)
+- Python 3.9+ (for verification scripts)
+- Node.js 18+ (for frontend development)
 
-### Installation
+### 1. Launch the Stack
+```bash
+# Start all services (Backend, Frontend, DBs)
+docker-compose up -d --build
+```
+- **Dashboard**: [http://localhost:3000](http://localhost:3000) (Default)
+- **API Docs**: [http://localhost:8000/docs](http://localhost:8000/docs)
+- **Kibana**: [http://localhost:5601](http://localhost:5601)
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/yourusername/aegis-siem.git
-   cd aegis-siem
-   ```
+### 2. Initialize System
+Set up Elasticsearch templates and indices:
+```bash
+docker-compose exec worker python tools/setup_elasticsearch.py
+```
 
-2. **Start the Infrastructure**
-   ```bash
-   docker-compose up -d --build
-   ```
-   This will spin up:
-   - `siem-backend` (API on port 8000)
-   - `siem-worker` (Background processing)
-   - `siem-elasticsearch` (DB)
-   - `siem-kibana` (Visualizer on port 5601)
-   - `siem-redis` (Queue)
+### 3. Verify Functionality (Full System Check)
+Run the automated verification suite to simulation attacks:
+```bash
+cd backend
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+python tools/verify_full_system.py
+```
+This script acts as a **Red Team** simulator, launching:
+- **SSH Brute Force**: Triggers Rule Engine.
+- **Suspicious Admin**: Triggers Manual Logic & Blocking.
+- **Data Exfiltration**: Triggers ML Anomaly Detection.
+- **Privilege Escalation**: Triggers Correlation Engine.
 
-3. **Train the Anomaly Model** (Initial Setup)
-   Generate synthetic normal traffic to train the unsupervised model:
-   ```bash
-   docker-compose exec worker python train_model.py
-   docker-compose restart worker
-   ```
-
-4. **Verify Functionality**
-   Run the end-to-end test suite:
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate
-   pip install requests
-   python tests/test_detection.py
-   ```
-   You should see:
-   - `SUCCESS: Rule Alert Found!`
-   - `SUCCESS: ML Anomaly Detected!`
+You should see **✅ PASS** for all checks.
 
 ## 📂 Project Structure
 
 ```
 ├── backend/
 │   ├── app/
-│   │   ├── api/          # API Endpoints
-│   │   ├── core/         # Config & Settings
-│   │   ├── models/       # Pydantic Schemas
-│   │   ├── services/     # Business Logic (Normalization, Enrichment, Detection)
-│   │   └── worker.py     # Background Log Processor
-│   ├── Dockerfile
-│   └── train_model.py    # ML Training Script
-├── tests/                # Verification Scripts
+│   │   ├── api/          # FastAPI Routes (Ingest, Dashboard)
+│   │   ├── services/     # Core Logic:
+│   │   │   ├── detection_rules.py  # Rule Engine
+│   │   │   ├── detection_ml.py     # ML Engine
+│   │   │   ├── correlation.py      # Incident Engine
+│   │   │   └── response.py         # Automated Blocking
+│   │   └── worker.py     # Main Async Processor
+│   ├── rules/            # Detection Config (YAML)
+│   ├── tools/            # Verification & Simulation Scripts
+│   └── train_model.py    # ML Training Pipeline
+├── frontend/             # Next.js Dashboard
 ├── docker-compose.yml
 └── README.md
 ```
 
-## 🔮 Roadmap
-- [x] Phase 1: Infrastructure & Ingestion
-- [x] Phase 2: Log Storage (Elasticsearch)
-- [x] Phase 3: Normalization & GeoIP Enrichment
-- [x] Phase 4: Detection Engine (Rules + ML)
-- [ ] Phase 5: Correlation Engine (Incident Generation)
-- [ ] Phase 6: Threat Dashboard (Next.js)
+## 🔮 Roadmap Overview
+- [x] **Phase 1-4**: Infrastructure, Ingestion, & Basic Detection
+- [x] **Phase 5**: Correlation Engine (Multi-stage attacks)
+- [x] **Phase 6**: SOC Dashboard (Frontend)
+- [x] **Phase 10-15**: ML Anomaly Detection & Auto-Response
+- [x] **Phase 17**: Full System Verification & Production Hardening
+- [ ] **Phase 18+**:
+    - [ ] Integrated Threat Intelligence Feeds (VirusTotal, AlienVault)
+    - [ ] Multi-Tenancy Support
+    - [ ] PDF Reporting Module
 
 ## 📜 License
-MIT
+MIT License. Open Source Security.

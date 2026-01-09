@@ -8,6 +8,7 @@ from app.services.enrichment import enrichment_service
 from app.services.detection_rules import rule_detector
 from app.services.detection_ml import ml_detector
 from app.services.correlation import correlation_service
+from app.services.response import response_service
 
 # Reuse connection logic or create new
 r = redis.Redis.from_url(settings.REDIS_URL, decode_responses=True)
@@ -45,33 +46,37 @@ def process_messages():
                             # 1. Normalize
                             source_type = log_entry.get('source', '')
                             message_text = log_entry.get('message', '')
-                            
+                            # 1. Normalization
                             extracted = normalization_service.parse_log(message_text, source_type)
                             if extracted:
                                 # Merge extracted fields into main log or metadata
                                 # Let's put them at the top level for cleaner ES querying, 
                                 # but be careful not to overwrite protected fields.
                                 log_entry.update(extracted)
+                            print(f"DEBUG WORKER: Normalized Log: {log_entry}")
                             
                             # 2. Enrich
                             enrichment_service.enrich_log(log_entry)
 
                             # 3. Detection
                             # Rule-based
-                            alerts = rule_detector.check_rules(log_entry)
+                            alerts, rule_severity = rule_detector.check_rules(log_entry)
                             if alerts:
                                 log_entry['alerts'] = alerts
-                                log_entry['severity'] = 'HIGH'
-                                print(f"ALERT: {alerts}")
+                                log_entry['severity'] = rule_severity
+                                print(f"ALERT: {alerts} (Severity: {rule_severity})")
                             
                             # ML-based
-                            anomaly = ml_detector.predict(log_entry)
-                            if anomaly == -1:
+                            anomaly_result = ml_detector.predict(log_entry)
+                            log_entry['anomaly_score'] = anomaly_result['score']
+                            log_entry['anomaly_explanation'] = anomaly_result['explanation']
+                            
+                            if anomaly_result['score'] > 0.7:
                                 log_entry['ml_anomaly'] = True
                                 if 'alerts' not in log_entry: 
                                     log_entry['alerts'] = []
-                                log_entry['alerts'].append("ML Detection: Anomalous Pattern")
-                                print(f"ML ANOMALY detected: {log_entry.get('message')}")
+                                log_entry['alerts'].append(f"ML Detection: {anomaly_result['explanation']}")
+                                print(f"ML ANOMALY detected: {anomaly_result['explanation']}")
 
                             # 4. Correlation (The Flex)
                             incidents = correlation_service.process_event(log_entry)
@@ -82,7 +87,12 @@ def process_messages():
                                 log_entry['severity'] = 'CRITICAL'
                                 print(f"INCIDENT DETECTED: {incidents}")
 
-                            # 5. Index to ES
+                            # 5. Automated Response
+                            resp_result = response_service.evaluate(log_entry)
+                            if resp_result:
+                                log_entry['response_action'] = resp_result
+
+                            # 6. Index to ES
                             storage_service.index_log(log_entry)
                             print(f"Indexed log: {log_entry.get('timestamp')} - {log_entry.get('message')}")
                         

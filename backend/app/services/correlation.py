@@ -8,45 +8,53 @@ class CorrelationService:
         self.PHASE_1_TTL = 300 # 5 minutes to succeed after brute force
         self.PHASE_2_TTL = 300 # 5 minutes to escalate privileges after login
 
-    def process_event(self, log_entry: Dict[str, Any]) -> List[str]:
+
+    def process_event(self, log_entry: dict):
         """
-        Process log entry and return list of new Incidents detected.
+        Correlate events to detect multi-stage attacks.
+        
+        Mitre ATT&CK mapping:
+        - T1110: Brute Force (Phase 1)
+        - T1078: Valid Accounts (Phase 2 - successful login after brute force)
+        - T1098: Account Manipulation / T1078: Valid Accounts (Phase 3 - sudo/privilege escalation)
         """
-        incidents = []
-        ip = log_entry.get('ip') or log_entry.get('metadata', {}).get('ip')
+        ip = log_entry.get("ip") or log_entry.get("metadata", {}).get("ip")
         if not ip:
-            return incidents
+            return
 
-        alerts = log_entry.get('alerts', [])
-        
-        # --- Phase 1: Brute Force Detection ---
-        # We rely on RuleBasedDetector to add the specific alert string.
-        # Check if ANY alert indicates brute force
-        is_brute_force = any("Brute Force" in alert for alert in alerts)
-        
-        if is_brute_force:
-            # Set Phase 1 Indicator
-            key = f"risk:phase:1:{ip}"
-            self.redis.setex(key, self.PHASE_1_TTL, "true")
-            # print(f"DEBUG: Set Phase 1 for {ip}")
+        # 1. State: Brute Force Attempt (Phase 1)
+        # This is set by the RuleBasedDetector (T1110)
+        # We check if this IP is already flagged as a risk.
+        if log_entry.get('alerts'):
+            for alert in log_entry['alerts']:
+                if "SSH Brute Force" in alert:
+                    # Set short-term state: "Risk Level 1"
+                    self.redis.setex(f"risk:phase:1:{ip}", 300, "active") # TTL 5 mins
 
-        # --- Phase 2: Successful Login after Brute Force ---
+        # 2. State: Successful Login after Brute Force (Phase 2)
+        # Technique: T1078 - Valid Accounts
         if log_entry.get('event_type') == 'ssh_login_success':
-            # Check if Phase 1 exists
             if self.redis.exists(f"risk:phase:1:{ip}"):
-                # Set Phase 2 Indicator
-                key = f"risk:phase:2:{ip}"
-                self.redis.setex(key, self.PHASE_2_TTL, "true")
-                incidents.append(f"Suspicious Login after Brute Force ({ip})")
-        
-        # --- Phase 3: Privilege Escalation (Sudo) after Suspicious Login ---
-        # Simple keyword check for sudo usage. In real app, normalization would give us 'command' field.
-        # We'll check 'sudo' in message for now.
-        msg = log_entry.get('message', '').lower()
-        if 'sudo' in msg:
+                # Escalating risk to Phase 2
+                self.redis.setex(f"risk:phase:2:{ip}", 300, "active")
+                
+                # Create Incident
+                incident_msg = f"Suspicious Login after Brute Force from {ip}"
+                log_entry['incidents'] = log_entry.get('incidents', [])
+                log_entry['incidents'].append(incident_msg)
+                log_entry['severity'] = 'CRITICAL'
+                log_entry['alerts'].append(incident_msg)
+
+        # 3. State: Privilege Escalation (Phase 3)
+        # Technique: T1548.003 - Sudo Caching / Sudo Usage
+        msg = log_entry.get("message", "").lower()
+        if "sudo" in msg and "command not found" not in msg:
             if self.redis.exists(f"risk:phase:2:{ip}"):
-                incidents.append(f"CRITICAL: Privilege Escalation after Brute Force ({ip})")
-        
-        return incidents
+                 # Highest Risk: Attacker Brute Forced -> Logged In -> Is now Root
+                incident_msg = f"CRITICAL: Privilege Escalation after Brute Force from {ip}"
+                log_entry['incidents'] = log_entry.get('incidents', [])
+                log_entry['incidents'].append(incident_msg)
+                log_entry['severity'] = 'CRITICAL'
+                log_entry['alerts'].append(incident_msg)
 
 correlation_service = CorrelationService()

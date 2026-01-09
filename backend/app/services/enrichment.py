@@ -1,69 +1,85 @@
 from user_agents import parse
-import random
+from app.core.config import settings
+import requests
+import logging
+from functools import lru_cache
+
+logger = logging.getLogger(__name__)
+
+# Cache GeoIP results to save API quotas (LRU Cache size 1000)
+@lru_cache(maxsize=1000)
+def get_geo_data(ip: str, token: str):
+    try:
+        resp = requests.get(f"https://ipinfo.io/{ip}?token={token}", timeout=2)
+        if resp.status_code == 200:
+            return resp.json()
+    except Exception as e:
+        logger.error(f"GeoIP Lookup Failed for {ip}: {e}")
+    return None
 
 class EnrichmentService:
     def __init__(self):
+        # Production: No local DB init required as we use External APIs
         pass
 
-    def _get_geoip(self, ip: str) -> dict:
+    def enrich_log(self, log_entry: dict):
         """
-        Mock GeoIP service.
-        In a real app, this would use a MaxMind DB or API.
+        Add 'geo', 'ua_details', and 'threat_intel' to log_entry.
+        Production Mode: No Mocks. If API fails, fields are omitted.
         """
-        # Deterministic mock based on IP octets for verification stability
-        if ip in ["127.0.0.1", "::1"]:
-            return {"country": "Localhost", "city": "Localhost", "lat": 0.0, "lon": 0.0}
-        
-        parts = ip.split('.')
-        if len(parts) == 4:
-            if parts[0] == "192":
-                return {"country": "Private", "city": "LAN", "lat": 0.0, "lon": 0.0}
-            if parts[0] == "10":
-                return {"country": "US", "city": "New York", "lat": 40.7128, "lon": -74.0060}
-            if parts[0] == "45":
-                return {"country": "RU", "city": "Moscow", "lat": 55.7558, "lon": 37.6173}
-            if parts[0] == "203":
-                return {"country": "CN", "city": "Beijing", "lat": 39.9042, "lon": 116.4074}
-        
-        return {"country": "Unknown", "city": "Unknown", "lat": 0.0, "lon": 0.0}
-
-    def _parse_user_agent(self, ua_string: str) -> dict:
-        if not ua_string or ua_string == "-":
-            return {}
-        
-        user_agent = parse(ua_string)
-        return {
-            "browser": user_agent.browser.family,
-            "os": user_agent.os.family,
-            "device": user_agent.device.family,
-            "is_mobile": user_agent.is_mobile,
-            "is_bot": user_agent.is_bot
-        }
-
-    def enrich_log(self, log_entry: dict) -> dict:
-        """
-        Enrich a log entry with additional data.
-        Modifies the dict in place or returns a new one.
-        """
-        # 1. Normalize first (extract IP, UA) if not already done?
-        # Assuming log_entry now contains 'parsed' fields from Normalization Service
-        # If not, we check metadata or root fields.
-        
-        # Let's say normalization puts extracted fields into 'metadata' or top level?
-        # We'll expect 'ip' and 'user_agent' to be present if normalization succeeded.
-        
-        # Try to find IP
         ip = log_entry.get("ip") or log_entry.get("metadata", {}).get("ip")
-        if ip:
-            geo = self._get_geoip(ip)
-            log_entry["geo"] = geo
         
-        # Try to find UA
-        ua = log_entry.get("user_agent") or log_entry.get("metadata", {}).get("user_agent")
-        if ua:
-            ua_data = self._parse_user_agent(ua)
-            log_entry["ua_details"] = ua_data
+        # 1. GeoIP Enrichment (Production: ipinfo.io)
+        if ip and settings.IPINFO_TOKEN:
+            data = get_geo_data(ip, settings.IPINFO_TOKEN)
+            if data:
+                loc = data.get('loc', '0,0').split(',')
+                log_entry["geo"] = {
+                    "country": data.get("country", "Unknown"),
+                    "city": data.get("city", "Unknown"),
+                    "lat": float(loc[0]) if len(loc) == 2 else 0.0,
+                    "lon": float(loc[1]) if len(loc) == 2 else 0.0,
+                    "isp": data.get("org", "Unknown")
+                }
 
-        return log_entry
+        # 2. Threat Intel (Production: AbuseIPDB)
+        # Note: We don't cache locally here for simplicity, but in real Prod we would use Redis to cache IP scores for 24h.
+        if ip and settings.ABUSEIPDB_API_KEY:
+            try:
+                headers = {
+                    'Key': settings.ABUSEIPDB_API_KEY,
+                    'Accept': 'application/json'
+                }
+                params = {'ipAddress': ip, 'maxAgeInDays': 90}
+                resp = requests.get("https://api.abuseipdb.com/api/v2/check", headers=headers, params=params, timeout=2)
+                if resp.status_code == 200:
+                    data = resp.json().get('data', {})
+                    score = data.get('abuseConfidenceScore', 0)
+                    log_entry["threat_intel"] = {
+                        "abuse_score": score,
+                        "is_tor": data.get('isTor', False),
+                        "usage_type": data.get('usageType', 'Unknown')
+                    }
+                    
+                    # ALERT LOGIC: High Reputation Score = High Severity
+                    if score > 80:
+                        log_entry['alerts'] = log_entry.get('alerts', [])
+                        log_entry['alerts'].append(f"High-Risk IP Detected (AbuseIPDB Score: {score})")
+                        log_entry['severity'] = 'HIGH'
+            except Exception as e:
+                logger.error(f"Threat Intel failed for {ip}: {e}")
+
+        # 3. User-Agent Enrichment (Local Lib, safe to run)
+        ua_string = log_entry.get("user_agent")
+        if ua_string:
+            try:
+                ua = parse(ua_string)
+                log_entry["ua_details"] = {
+                    "browser": ua.browser.family,
+                    "os": ua.os.family,
+                    "device": ua.device.family
+                }
+            except Exception:
+                pass # Fail silently if UA parsing breaks
 
 enrichment_service = EnrichmentService()

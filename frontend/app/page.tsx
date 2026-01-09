@@ -1,185 +1,212 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import axios from "axios";
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  LineChart, Line
-} from "recharts";
-import { Activity, ShieldAlert, Globe, Radio, Server } from "lucide-react";
+import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
+import { Shield, AlertTriangle, Activity, Terminal, Lock, Globe } from 'lucide-react';
 
-// Types
-interface Stats {
-  total_logs: number;
-  high_alerts: number;
-  critical_incidents: number;
-}
-
-interface LogActivity {
-  name: string;
-  logs: number;
-}
-
-interface Alert {
-  timestamp: string;
-  message: string;
-  severity: string;
-  source: string;
-  ip?: string;
-}
-
-const API_URL = "http://localhost:8000/api/v1/dashboard";
+const API_BASE = "http://localhost:8000/api/v1/dashboard";
 
 export default function Dashboard() {
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [activity, setActivity] = useState<LogActivity[]>([]);
-  const [alerts, setAlerts] = useState<Alert[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const fetchData = async () => {
-    try {
-      const [statsRes, activityRes, alertsRes] = await Promise.all([
-        axios.get(`${API_URL}/stats`),
-        axios.get(`${API_URL}/activity`),
-        axios.get(`${API_URL}/recent`),
-      ]);
-      setStats(statsRes.data);
-      setActivity(activityRes.data);
-      setAlerts(alertsRes.data);
-    } catch (error) {
-      console.error("Failed to fetch dashboard data", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [activeTab, setActiveTab] = useState('overview');
+  const [stats, setStats] = useState<any>(null);
+  const [incidents, setIncidents] = useState<any[]>([]);
+  const [alerts, setAlerts] = useState<any[]>([]);
+  const [logs, setLogs] = useState<any[]>([]);
 
   useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 5000); // Poll every 5s
+    fetchStats();
+    fetchIncidents();
+    const interval = setInterval(() => {
+      fetchStats();
+      // Poll based on active tab
+      if (activeTab === 'alerts') fetchAlerts();
+      if (activeTab === 'logs') fetchLogs();
+    }, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [activeTab]);
 
-  if (loading && !stats) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-slate-950 text-emerald-500 font-mono">
-        <Activity className="animate-pulse mr-2" /> INITIALIZING AEGIS SYSTEM...
-      </div>
-    );
-  }
+  const fetchStats = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/stats`);
+      setStats(await res.json());
+    } catch (e) { }
+  };
+
+  const fetchIncidents = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/incidents`);
+      setIncidents(await res.json());
+    } catch (e) { }
+  };
+
+  const fetchAlerts = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/alerts`);
+      setAlerts(await res.json());
+    } catch (e) { }
+  };
+
+  const fetchLogs = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/logs`);
+      setLogs(await res.json());
+    } catch (e) { }
+  };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-emerald-500/30">
+    <div className="min-h-screen bg-slate-950 text-slate-200 p-8 font-mono">
       {/* Header */}
-      <header className="border-b border-slate-800 bg-slate-900/50 backdrop-blur-md sticky top-0 z-50">
-        <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <ShieldAlert className="w-8 h-8 text-emerald-500" />
-            <h1 className="text-xl font-bold tracking-tight">
-              AEGIS <span className="text-slate-500 font-light">SIEM</span>
+      <motion.div
+        initial={{ y: -20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        className="flex justify-between items-center mb-8 border-b border-cyan-900 pb-4"
+      >
+        <div className="flex items-center gap-4">
+          <Shield className="w-10 h-10 text-cyan-400" />
+          <div>
+            <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-600">
+              AEGIS SIEM
             </h1>
-          </div>
-          <div className="flex items-center gap-4 text-xs font-mono text-emerald-500/80">
-            <div className="flex items-center gap-1.5">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
-              SYSTEM ONLINE
-            </div>
-            <div>WS: CONNECTED</div>
+            <p className="text-xs text-slate-500 tracking-widest">THREAT DETECTION & RESPONSE PLATFORM</p>
           </div>
         </div>
-      </header>
-
-      <main className="container mx-auto px-6 py-8 space-y-8">
-        {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card title="Total Events Processed" icon={<Server className="w-5 h-5 text-blue-400" />} value={stats?.total_logs} color="blue" />
-          <Card title="High Severity Alerts" icon={<Radio className="w-5 h-5 text-orange-400" />} value={stats?.high_alerts} color="orange" />
-          <Card title="Critical Incidents" icon={<ShieldAlert className="w-5 h-5 text-red-500" />} value={stats?.critical_incidents} color="red" isFlash={(stats?.critical_incidents || 0) > 0} />
+        <div className="flex gap-4 items-center">
+          <span className="flex items-center gap-2 text-xs text-green-400 bg-green-900/20 px-3 py-1 rounded-full border border-green-900">
+            <Activity className="w-3 h-3" /> SYSTEM ONLINE
+          </span>
         </div>
+      </motion.div>
 
-        {/* Charts Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Timeline Chart */}
-          <div className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-xl">
-            <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
-              <Activity className="w-4 h-4 text-slate-400" /> Event Volume (Last 24h)
-            </h3>
-            <div className="h-[300px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={activity}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                  <XAxis dataKey="name" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
-                  <YAxis stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', color: '#f8fafc' }}
-                    itemStyle={{ color: '#10b981' }}
-                    cursor={{ fill: '#1e293b', opacity: 0.4 }}
-                  />
-                  <Bar dataKey="logs" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                </BarChart>
-              </ResponsiveContainer>
+      {/* Tabs */}
+      <div className="flex gap-4 mb-8">
+        {['overview', 'alerts', 'logs'].map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-6 py-2 rounded-lg border uppercase text-sm tracking-widest transition-all ${activeTab === tab
+                ? 'border-cyan-500 bg-cyan-900/40 text-cyan-300 shadow-[0_0_15px_rgba(34,211,238,0.3)]'
+                : 'border-slate-800 bg-slate-900/50 text-slate-500 hover:border-slate-700'
+              }`}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      {/* Overview Tab */}
+      {activeTab === 'overview' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <StatCard icon={<Shield />} label="Total Logs" value={stats?.total_logs || 0} color="text-blue-400" />
+          <StatCard icon={<AlertTriangle />} label="Total Alerts" value={stats?.total_alerts || 0} color="text-yellow-400" />
+          <StatCard icon={<Lock />} label="Active Incidents" value={stats?.total_incidents || 0} color="text-red-400" isFlash={stats?.total_incidents > 0} />
+          <StatCard icon={<Globe />} label="Critical (24h)" value={stats?.critical_last_24h || 0} color="text-purple-400" />
+
+          {/* Recent Incidents Table */}
+          <div className="col-span-1 md:col-span-2 lg:col-span-4 bg-slate-900/50 border border-slate-800 rounded-xl p-6">
+            <h3 className="text-xl font-bold mb-4 text-cyan-400">Recent Incidents</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-slate-800 text-slate-500">
+                    <th className="p-3">Timestamp</th>
+                    <th className="p-3">Incident Type</th>
+                    <th className="p-3">Severity</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {incidents.length === 0 ? (
+                    <tr><td colSpan={3} className="p-4 text-center text-slate-600">No active incidents</td></tr>
+                  ) : (
+                    incidents.map((inc, i) => (
+                      <tr key={i} className="border-b border-slate-800 hover:bg-slate-800/30">
+                        <td className="p-3 font-mono text-slate-400">{new Date(inc.timestamp).toLocaleTimeString()}</td>
+                        <td className="p-3 text-red-300">{inc.incident}</td>
+                        <td className="p-3"><span className="bg-red-900/30 text-red-500 px-2 py-0.5 rounded border border-red-900/50 text-xs">CRITICAL</span></td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
+        </div>
+      )}
 
-          {/* Recent Alerts Feed */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-xl overflow-hidden flex flex-col">
-            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <ShieldAlert className="w-4 h-4 text-red-500" /> Live Threat Feed
-            </h3>
-            <div className="flex-1 overflow-y-auto space-y-3 pr-2 scrollbar-thin scrollbar-thumb-slate-700">
-              {alerts.length === 0 ? (
-                <div className="text-slate-500 text-center py-10 italic">No active threats detected.</div>
-              ) : (
-                alerts.map((alert, i) => (
-                  <div key={i} className={`p-3 rounded-lg border text-sm ${alert.severity === 'CRITICAL' ? 'bg-red-950/20 border-red-900/50 text-red-200' :
-                      alert.severity === 'HIGH' ? 'bg-orange-950/20 border-orange-900/50 text-orange-200' :
-                        'bg-slate-800 border-slate-700 text-slate-300'
-                    }`}>
-                    <div className="flex justify-between items-start mb-1">
-                      <span className={`font-bold text-xs px-1.5 py-0.5 rounded ${alert.severity === 'CRITICAL' ? 'bg-red-500 text-white' : 'bg-orange-500 text-white'
-                        }`}>{alert.severity}</span>
-                      <span className="text-xs text-slate-500 font-mono">{new Date(alert.timestamp).toLocaleTimeString()}</span>
-                    </div>
-                    <div className="font-medium text-xs mb-1">{alert.message}</div>
-                    <div className="flex items-center gap-3 text-[10px] text-slate-500 uppercase tracking-wider">
-                      <span>SRC: {alert.source}</span>
-                      {alert.ip && <span>IP: {alert.ip}</span>}
-                    </div>
+      {/* Alerts Tab */}
+      {activeTab === 'alerts' && (
+        <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-6">
+          <h3 className="text-xl font-bold mb-4 text-yellow-400">Security Alerts Feed</h3>
+          <div className="space-y-2">
+            {alerts.map((alert, i) => (
+              <div key={i} className="flex flex-col md:flex-row justify-between items-start md:items-center bg-slate-950/50 p-4 rounded border border-slate-800 hover:border-slate-700 transition">
+                <div className="flex gap-4 items-center">
+                  <AlertTriangle className="w-5 h-5 text-yellow-500" />
+                  <div>
+                    <div className="font-bold text-slate-300">{alert.rule_name}</div>
+                    <div className="text-xs text-slate-500">{alert.timestamp} | {alert.source_ip}</div>
                   </div>
-                ))
-              )}
-            </div>
+                </div>
+                <div className="mt-2 md:mt-0">
+                  <span className={`px-2 py-1 rounded text-xs font-bold border ${getSeverityColor(alert.severity)}`}>
+                    {alert.severity}
+                  </span>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
+      )}
 
-        {/* Map Section Placeholder (Leaflet needs CSR carefully) */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-xl h-[400px] flex items-center justify-center relative overflow-hidden group">
-          <div className="absolute inset-0 bg-[url('https://upload.wikimedia.org/wikipedia/commons/e/ec/World_map_blank_without_borders.svg')] bg-cover opacity-5 grayscale group-hover:opacity-10 transition-opacity"></div>
-          <div className="text-center z-10">
-            <Globe className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-            <h3 className="text-lg font-semibold text-slate-400">Global Attack Map</h3>
-            <p className="text-sm text-slate-500">Visualization of GeoIP sources</p>
-            <p className="text-xs text-slate-600 mt-2">(Leaflet Integration Pending Phase 6 Completion)</p>
+      {/* Logs Tab */}
+      {activeTab === 'logs' && (
+        <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-6">
+          <h3 className="text-xl font-bold mb-4 text-blue-400">Raw Log Explorer</h3>
+          <div className="font-mono text-xs space-y-1">
+            {logs.map((log, i) => (
+              <div key={i} className="p-2 hover:bg-slate-800 rounded flex gap-4 break-all border-b border-slate-800/50">
+                <span className="text-slate-500 shrink-0 w-40">{log.timestamp}</span>
+                <span className="text-slate-300 grow">
+                  {log.message}
+                  {log.ml_anomaly && (
+                    <span className="ml-2 text-purple-400">[ML Anomaly: {log.anomaly_explanation}]</span>
+                  )}
+                  {log.response_action && (
+                    <span className="ml-2 text-red-500 font-bold">[ACTION: {log.response_action.action.toUpperCase()}]</span>
+                  )}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
-      </main>
+      )}
+
     </div>
   );
 }
 
-function Card({ title, value, icon, color, isFlash }: any) {
+function StatCard({ icon, label, value, color, isFlash }: any) {
   return (
-    <div className={`p-6 rounded-xl border bg-slate-900 shadow-lg relative overflow-hidden ${isFlash ? 'animate-pulse-slow border-red-500/50' : 'border-slate-800'}`}>
-      <div className={`absolute top-0 right-0 w-24 h-24 bg-${color}-500/10 rounded-full -mr-12 -mt-12 blur-2xl`}></div>
-      <div className="flex justify-between items-start mb-4 relative z-10">
-        <div className="text-slate-400 text-sm font-medium">{title}</div>
-        <div className={`p-2 rounded-lg bg-${color}-500/10`}>{icon}</div>
+    <motion.div
+      whileHover={{ scale: 1.02 }}
+      className={`p-6 rounded-xl border border-slate-800 bg-slate-900/50 flex flex-col justify-between h-32 relative overflow-hidden ${isFlash ? 'animate-pulse border-red-900 bg-red-900/10' : ''}`}
+    >
+      <div className="flex justify-between items-start">
+        <div className={`${color}`}>{icon}</div>
+        {isFlash && <div className="absolute top-0 right-0 w-full h-full bg-red-500/10 animate-ping"></div>}
       </div>
-      <div className="text-3xl font-bold text-slate-100 font-mono relative z-10">
-        {value?.toLocaleString() || 0}
+      <div>
+        <h2 className="text-3xl font-bold text-slate-200">{value}</h2>
+        <p className="text-xs text-slate-500 uppercase tracking-wider">{label}</p>
       </div>
-    </div>
-  );
+    </motion.div>
+  )
+}
+
+function getSeverityColor(sev: string) {
+  switch (sev) {
+    case 'CRITICAL': return 'bg-red-900/20 text-red-500 border-red-900';
+    case 'HIGH': return 'bg-orange-900/20 text-orange-500 border-orange-900';
+    case 'MEDIUM': return 'bg-yellow-900/20 text-yellow-500 border-yellow-900';
+    default: return 'bg-blue-900/20 text-blue-500 border-blue-900';
+  }
 }

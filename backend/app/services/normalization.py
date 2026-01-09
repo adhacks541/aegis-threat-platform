@@ -18,6 +18,12 @@ class NormalizationService:
         self.ssh_accepted_pattern = re.compile(
             r'Accepted password for (?P<user>[\w\-_]+) from (?P<ip>[\d\.]+) port \d+ ssh2'
         )
+        
+        # UFW Firewall Pattern
+        # [UFW BLOCK] IN=eth0 OUT= MAC=... SRC=1.2.3.4 DST=...
+        self.ufw_pattern = re.compile(
+            r'\[UFW BLOCK\] .*?SRC=(?P<ip>[\d\.]+) .*?DST=(?P<dst>[\d\.]+) .*?PROTO=(?P<proto>\w+)'
+        )
 
     def parse_log(self, message: str, source_type: str) -> Dict[str, Any]:
         """
@@ -30,6 +36,8 @@ class NormalizationService:
             match = self.nginx_pattern.match(message)
             if match:
                 extracted = match.groupdict()
+                # Remove extracted timestamp to avoid format conflicts with ES (use API timestamp instead)
+                extracted.pop('timestamp', None)
                 # Cast status/bytes to int
                 extracted['status'] = int(extracted['status'])
                 extracted['bytes'] = int(extracted['bytes'])
@@ -47,6 +55,14 @@ class NormalizationService:
                 if success_match:
                     extracted = success_match.groupdict()
                     extracted['event_type'] = 'ssh_login_success'
+        
+        elif "UFW BLOCK" in message:
+            match = self.ufw_pattern.search(message)
+            if match:
+                extracted = match.groupdict()
+                extracted['event_type'] = 'firewall_block'
+                extracted['action'] = 'blocked'
+                extracted['source'] = 'firewall'
         
         return extracted
 

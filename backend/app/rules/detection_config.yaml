@@ -1,0 +1,25 @@
+rules:
+  ssh_brute_force:
+    enabled: true
+    threshold: 5
+    window_seconds: 60
+    severity: HIGH
+    description: "Detects multiple failed SSH login attempts from a single IP."
+
+  sudo_usage:
+    enabled: true
+    severity: MEDIUM
+    description: "Detects usage of 'sudo' command by any user."
+
+  suspicious_admin:
+    enabled: true
+    admin_users: ["root", "admin", "ubuntu"]
+    severity: CRITICAL
+    description: "Detects administrative login from a previously unseen IP address."
+
+  ml_anomaly_detection:
+    enabled: true
+    contamination: 0.05
+    threshold: 0.7
+    severity: MEDIUM
+    description: "Unsupervised anomaly detection using Isolation Forest (Time, Length, Frequency)."

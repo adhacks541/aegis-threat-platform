@@ -1,0 +1,23 @@
+whitelist:
+  cidrs:
+    - "127.0.0.1/32"
+    - "::1/128"
+    - "192.168.1.0/24" # Corporate LAN example
+    - "10.0.0.0/8"     # Internal Network
+
+policy:
+  # Risk Score Calculation: 
+  # CRITICAL=100, HIGH=70, MEDIUM=40, LOW=10
+  # Block Threshold: Risk > 80
+  block_threshold: 80
+  
+  # How long to block an IP (seconds) - 5 minutes default
+  block_duration_seconds: 300
+  
+  # Actions
+  responses:
+    blocking:
+      enabled: true
+      save_state: true # Save to Redis
+    logging:
+      enabled: true

@@ -59,11 +59,26 @@ services:
     environment:
       - REDIS_URL=redis://redis:6379/0
       - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - API_URL=http://backend:8000/api/v1
     depends_on:
       - redis
       - elasticsearch
     volumes:
       - ./backend:/app
+    networks:
+      - siem-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: siem-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    depends_on:
+      - backend
     networks:
       - siem-network
 

@@ -1,72 +1,119 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 :root {
   --background: #020617;
   --foreground: #f8fafc;
-  
-  /* Cyberpunk Palette */
-  --neon-green: #10b981;
-  --neon-red: #ef4444;
-  --neon-blue: #3b82f6;
-  --neon-amber: #f59e0b;
+
+  --cyber-primary: #06b6d4;
+  /* Cyan-500 */
+  --cyber-secondary: #3b82f6;
+  /* Blue-500 */
+  --cyber-alert: #ef4444;
+  /* Red-500 */
+  --cyber-warn: #eab308;
+  /* Yellow-500 */
+  --cyber-success: #10b981;
+  /* Emerald-500 */
+}
+
+@theme {
+  --font-orbitron: var(--font-orbitron);
+  --font-mono: var(--font-jetbrains-mono);
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: 'Inter', sans-serif;
-  overflow-x: hidden;
+  font-family: var(--font-mono);
 }
 
-/* Cyber Grid Background */
-.bg-cyber-grid {
-  background-size: 50px 50px;
-  background-image: 
-    linear-gradient(to right, rgba(30, 41, 59, 0.3) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(30, 41, 59, 0.3) 1px, transparent 1px);
-  mask-image: radial-gradient(circle at center, black 40%, transparent 100%);
-}
-
-/* Glassmorphism Panel */
-.glass-panel {
-  background: rgba(15, 23, 42, 0.6);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
-}
-
-/* Neon Glows */
-.glow-text-green {
-  text-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
-}
-
-.glow-border-green {
-  box-shadow: 0 0 15px rgba(16, 185, 129, 0.2);
-  border-color: rgba(16, 185, 129, 0.3);
-}
-
-.glow-border-red {
-  box-shadow: 0 0 15px rgba(239, 68, 68, 0.2);
-  border-color: rgba(239, 68, 68, 0.3);
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-orbitron);
 }
 
 /* Animations */
 @keyframes scanline {
-  0% { transform: translateY(-100%); }
-  100% { transform: translateY(100%); }
+  0% {
+    transform: translateY(-100%);
+  }
+
+  100% {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes flicker {
+
+  0%,
+  19.999%,
+  22%,
+  62.999%,
+  64%,
+  64.999%,
+  70%,
+  100% {
+    opacity: 0.99;
+    filter: drop-shadow(0 0 1px rgba(6, 182, 212, 0.1));
+  }
+
+  20%,
+  21.999%,
+  63%,
+  63.999%,
+  65%,
+  69.999% {
+    opacity: 0.4;
+    filter: none;
+  }
+}
+
+@keyframes pulse-glow {
+
+  0%,
+  100% {
+    box-shadow: 0 0 5px rgba(6, 182, 212, 0.2);
+  }
+
+  50% {
+    box-shadow: 0 0 20px rgba(6, 182, 212, 0.6);
+  }
+}
+
+/* Utilities */
+.bg-cyber-grid {
+  background-size: 40px 40px;
+  background-image:
+    linear-gradient(to right, rgba(6, 182, 212, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(6, 182, 212, 0.05) 1px, transparent 1px);
+}
+
+.glass-panel {
+  @apply bg-slate-900/40 backdrop-blur-md border border-slate-700/50 shadow-xl;
+}
+
+.cyber-border {
+  @apply border border-cyan-500/30 hover:border-cyan-400/60 transition-colors duration-300;
+}
+
+.text-glow {
+  text-shadow: 0 0 10px rgba(6, 182, 212, 0.5);
+}
+
+.box-glow {
+  box-shadow: 0 0 15px rgba(6, 182, 212, 0.15);
 }
 
 .scanline::after {
   content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 5px;
-  background: rgba(16, 185, 129, 0.3);
-  box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
-  animation: scanline 4s linear infinite;
-  pointer-events: none;
+  @apply absolute inset-0 w-full h-full pointer-events-none z-50;
+  background: linear-gradient(to bottom,
+      transparent 50%,
+      rgba(0, 0, 0, 0.2) 51%,
+      transparent 51%);
+  background-size: 100% 4px;
+  animation: scanline 10s linear infinite;
+  opacity: 0.3;
 }

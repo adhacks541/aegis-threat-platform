@@ -18,6 +18,7 @@
 
 ### 📊 SOC Dashboard
 - **Real-Time Monitoring**: Live feed of Logs, Alerts, and Incidents via modern Next.js UI.
+- **Cyberpunk Experience**: A fully immersive, sci-fi themed interface with holographic effects, retro-terminal logs, and real-time system status indicators.
 - **Investigation**: Deep dive into raw logs with enrichment context (GeoIP, User-Agent).
 - **Incident Management**: Track correlated attack chains.
 
@@ -63,11 +64,7 @@ docker-compose exec worker python tools/setup_elasticsearch.py
 ### 3. Verify Functionality (Full System Check)
 Run the automated verification suite to simulation attacks:
 ```bash
-cd backend
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-python tools/verify_full_system.py
+docker-compose exec worker python tools/verify_full_system.py
 ```
 This script acts as a **Red Team** simulator, launching:
 - **SSH Brute Force**: Triggers Rule Engine.

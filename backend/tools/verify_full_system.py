@@ -4,10 +4,14 @@ import redis
 import sys
 from datetime import datetime, timezone
 
+import os
+
 # Config
-API_URL = "http://localhost:8000/api/v1"
-ES_URL = "http://localhost:9200"
-REDIS_URL = "redis://localhost:6379/0"
+# When running inside Docker (e.g. 'docker-compose exec worker ...'), these should point to service names (redis, elasticsearch).
+# When running locally, they default to localhost.
+API_URL = os.getenv("API_URL", "http://localhost:8000/api/v1")
+ES_URL = os.getenv("ELASTICSEARCH_URL", "http://localhost:9200")
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
 r = redis.from_url(REDIS_URL, decode_responses=True)
 

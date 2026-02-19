@@ -16,7 +16,15 @@ app.add_middleware(
 
 @app.get("/")
 def read_root():
-    return {"message": "Welcome to the SIEM API"}
+    return {
+        "message": "Aegis SIEM API is running",
+        "docs": "/docs",
+        "version": "1.0.0"
+    }
+
+@app.get("/health")
+def health_check():
+    return {"status": "healthy", "services": {"api": "online"}}
 
 app.include_router(ingest.router, prefix=f"{settings.API_V1_STR}/ingest", tags=["ingest"])
 app.include_router(dashboard.router, prefix=f"{settings.API_V1_STR}/dashboard", tags=["dashboard"])

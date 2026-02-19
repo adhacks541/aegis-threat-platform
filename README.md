@@ -1,5 +1,8 @@
 # 🛡️ Aegis – Intelligent SIEM & Threat Response Platform
 
+> **[📖 Project Explanation](project_explanation.md)** | **[🧪 Testing Guide](testing_guide.md)**
+
+
 **Aegis** is a production-grade Security Information and Event Management (SIEM) system built for modern threat detection. It unifies high-performance log ingestion, rule-based detection, unsupervised machine learning, and automated incident response into a single, scalable platform.
 
 ![SOC Dashboard](dashboard_preview.png)

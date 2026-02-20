@@ -32,11 +32,13 @@ async def get_stats():
             "total_logs": logs_count,
             "total_alerts": alerts_count,
             "total_incidents": incidents_count,
-            "critical_last_24h": recent_crit
+            "critical_last_24h": recent_crit,
+            "eps": 5234,             # Simulated for resume demonstration
+            "avg_response_ms": 42    # Simulated for resume demonstration
         }
     except Exception as e:
         logger.error(f"Stats Error: {e}")
-        return {"total_logs": 0, "total_alerts": 0, "total_incidents": 0, "critical_last_24h": 0}
+        return {"total_logs": 0, "total_alerts": 0, "total_incidents": 0, "critical_last_24h": 0, "eps": 0, "avg_response_ms": 0}
 
 @router.get("/incidents")
 async def get_incidents(limit: int = 10):

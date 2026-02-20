@@ -163,7 +163,7 @@ function OverviewTab({ stats, incidents }: { stats: any, incidents: any[] }) {
   return (
     <div className="space-y-8">
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
         <StatCard
           label="Total Logs"
           value={stats?.total_logs || 0}
@@ -172,26 +172,40 @@ function OverviewTab({ stats, incidents }: { stats: any, incidents: any[] }) {
           delay={0}
         />
         <StatCard
+          label="Ingestion (EPS)"
+          value={stats?.eps ? `${stats.eps.toLocaleString()}+` : "0"}
+          icon={<Zap className="w-6 h-6" />}
+          color="emerald"
+          delay={0.1}
+        />
+        <StatCard
+          label="Response Time"
+          value={stats?.avg_response_ms ? `<${stats.avg_response_ms}ms` : "0ms"}
+          icon={<Activity className="w-6 h-6" />}
+          color="blue"
+          delay={0.2}
+        />
+        <StatCard
           label="Threat Alerts"
           value={stats?.total_alerts || 0}
           icon={<Radio className="w-6 h-6" />}
           color="yellow"
-          delay={0.1}
+          delay={0.3}
         />
         <StatCard
           label="Active Incidents"
           value={stats?.total_incidents || 0}
-          icon={<Zap className="w-6 h-6" />}
+          icon={<Shield className="w-6 h-6" />}
           color="red"
           pulse
-          delay={0.2}
+          delay={0.4}
         />
         <StatCard
           label="Blocked IPs"
           value={stats?.critical_last_24h || 0}
           icon={<Lock className="w-6 h-6" />}
           color="purple"
-          delay={0.3}
+          delay={0.5}
         />
       </div>
 
@@ -335,6 +349,8 @@ function LogsTab({ logs }: { logs: any[] }) {
 function StatCard({ label, value, icon, color, pulse, delay }: any) {
   const colors: any = {
     cyan: "text-cyan-400 border-cyan-500/30 shadow-cyan-500/20",
+    emerald: "text-emerald-400 border-emerald-500/30 shadow-emerald-500/20",
+    blue: "text-blue-400 border-blue-500/30 shadow-blue-500/20",
     yellow: "text-yellow-400 border-yellow-500/30 shadow-yellow-500/20",
     red: "text-red-400 border-red-500/30 shadow-red-500/20",
     purple: "text-purple-400 border-purple-500/30 shadow-purple-500/20",

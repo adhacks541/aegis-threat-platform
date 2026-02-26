@@ -77,6 +77,12 @@ This script acts as a **Red Team** simulator, launching:
 
 You should see **✅ PASS** for all checks.
 
+### 4. Performance Benchmarking
+Test the high-throughput ingestion pipeline (Redis Streams + FastAPI):
+```bash
+python backend/tools/benchmark_ingest.py
+```
+This script validates the system's ability to handle **>5,000 Events Per Second (EPS)**.
 ## 📂 Project Structure
 
 ```

@@ -83,6 +83,13 @@ Test the high-throughput ingestion pipeline (Redis Streams + FastAPI):
 python backend/tools/benchmark_ingest.py
 ```
 This script validates the system's ability to handle **>5,000 Events Per Second (EPS)**.
+
+### 5. API Health Check
+Verify the operational status of the backend services:
+```bash
+curl http://localhost:8000/health
+```
+Expected output: `{"status": "healthy", "services": {"api": "online"}}`
 ## 📂 Project Structure
 
 ```

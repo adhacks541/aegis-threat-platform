@@ -124,3 +124,6 @@ Expected output: `{"status": "healthy", "services": {"api": "online"}}`
 
 ## 📜 License
 MIT License. Open Source Security.
+
+---
+*Built with ❤️ by the Aegis Team.*

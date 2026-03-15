@@ -14,10 +14,17 @@
 - **Correlation Engine**: Stateful tracking of multi-stage attacks (e.g., Brute Force → Successful Login → Privilege Escalation) using Redis.
 - **Explainable AI**: Every ML anomaly comes with a human-readable explanation (e.g., "Anomalous Time of Day", "Unusual Message Size").
 
+### 🔍 Multi-Source Log Normalization
+- **Nginx**: Full request parsing (IP, method, path, status, bytes, user-agent, referrer).
+- **SSH**: Distinguishes `Failed password` vs `Accepted password` events, extracts attacker IP and username.
+- **UFW Firewall**: Parses `[UFW BLOCK]` events with source/destination IP and protocol.
+- **Extensible**: Regex-based `NormalizationService` makes it trivial to add new log sources.
+
 ### 🛡️ Automated Response (SOAR)
 - **Active Defense**: Automatically blocks IPs triggering Critical alerts or high risk scores (> 80).
 - **Dynamic Risk Scoring**: Calculates risk based on Alert Severity + ML Confidence + Correlation Context.
 - **Fail-Safes**: Built-in whitelisting and auto-expiration of blocks to prevent self-lockout.
+- **Response Config**: YAML-driven response policy (`response_config.yaml`) for customizable thresholds and actions.
 
 ### 📊 SOC Dashboard
 - **Real-Time Monitoring**: Live feed of Logs, Alerts, and Incidents via modern Next.js UI.
@@ -64,8 +71,18 @@ Set up Elasticsearch templates and indices:
 docker-compose exec worker python tools/setup_elasticsearch.py
 ```
 
-### 3. Verify Functionality (Full System Check)
-Run the automated verification suite to simulation attacks:
+### 3. Train the ML Model
+Generate a realistic training dataset and train the Isolation Forest model:
+```bash
+# Generate 10,000 logs with Zipfian IP distribution + injected attack anomalies
+python backend/tools/generate_dataset.py
+
+# Train the Isolation Forest model on the generated dataset
+python backend/train_model.py
+```
+
+### 4. Verify Functionality (Full System Check)
+Run the automated verification suite to simulate attacks:
 ```bash
 docker-compose exec worker python tools/verify_full_system.py
 ```
@@ -77,34 +94,67 @@ This script acts as a **Red Team** simulator, launching:
 
 You should see **✅ PASS** for all checks.
 
-### 4. Performance Benchmarking
+### 5. Performance Benchmarking
 Test the high-throughput ingestion pipeline (Redis Streams + FastAPI):
 ```bash
 python backend/tools/benchmark_ingest.py
 ```
 This script validates the system's ability to handle **>5,000 Events Per Second (EPS)**.
 
-### 5. API Health Check
+### 6. API Health Check
 Verify the operational status of the backend services:
 ```bash
 curl http://localhost:8000/health
 ```
 Expected output: `{"status": "healthy", "services": {"api": "online"}}`
+
+## 🧪 Test Suite
+
+Aegis ships with a comprehensive test suite covering every layer of the platform:
+
+| Test File | Coverage Area |
+| :--- | :--- |
+| `test_detection.py` | ML & Rule-based detection |
+| `test_detection_rules.py` | Sigma-like rule engine unit tests |
+| `test_correlation.py` | Multi-stage attack correlation |
+| `test_enrichment.py` | GeoIP & Threat Intel enrichment |
+| `test_response_automation.py` | Automated blocking & SOAR response |
+| `test_ingest.py` | Log ingestion pipeline |
+| `test_ingest_prod.py` | Production-load ingestion testing |
+| `test_e2e.py` | End-to-end system flow |
+| `test_ml_explainability.py` | AI explanation output validation |
+| `test_normalization_firewall.py` | UFW/SSH/Nginx log normalization |
+| `test_real_api.py` | Live API integration tests |
+| `test_ilm_storage.py` | Elasticsearch ILM storage lifecycle |
+
+Run any test directly:
+```bash
+python tests/test_response_automation.py
+```
+
 ## 📂 Project Structure
 
 ```
 ├── backend/
 │   ├── app/
 │   │   ├── api/          # FastAPI Routes (Ingest, Dashboard)
+│   │   ├── core/         # Core Config & Settings
+│   │   ├── models/       # Pydantic Data Models (LogEntry, etc.)
+│   │   ├── response/     # Response Policy Config (YAML)
 │   │   ├── services/     # Core Logic:
+│   │   │   ├── normalization.py    # Multi-source Log Parser
 │   │   │   ├── detection_rules.py  # Rule Engine
-│   │   │   ├── detection_ml.py     # ML Engine
+│   │   │   ├── detection_ml.py     # ML Engine (Isolation Forest)
 │   │   │   ├── correlation.py      # Incident Engine
+│   │   │   ├── enrichment.py       # GeoIP & Threat Intel
 │   │   │   └── response.py         # Automated Blocking
 │   │   └── worker.py     # Main Async Processor
-│   ├── rules/            # Detection Config (YAML)
-│   ├── tools/            # Verification & Simulation Scripts
+│   ├── tools/            # Verification, Simulation & Dataset Scripts
+│   │   ├── generate_dataset.py     # ML Training Data Generator
+│   │   ├── benchmark_ingest.py     # EPS Benchmarking
+│   │   └── verify_full_system.py   # Red Team Simulator
 │   └── train_model.py    # ML Training Pipeline
+├── tests/                # Full Test Suite (12 test files)
 ├── frontend/             # Next.js Dashboard
 ├── docker-compose.yml
 └── README.md
@@ -117,8 +167,11 @@ Expected output: `{"status": "healthy", "services": {"api": "online"}}`
 - [x] **Phase 10-15**: ML Anomaly Detection & Auto-Response
 - [x] **Phase 17**: Full System Verification & Production Hardening
 - [x] **Phase 18**: UI/UX Overhaul Prototyping (Dark Cyberpunk Aesthetic generated via Google Stitch)
-- [ ] **Phase 18+**:
+- [x] **Phase 18+**:
     - [x] Integrated Threat Intelligence Feeds (VirusTotal, AlienVault)
+    - [x] Multi-Source Log Normalization (Nginx, SSH, UFW Firewall)
+    - [x] Comprehensive Test Suite (12 test files, full coverage)
+    - [x] ML Training Dataset Generator (Zipfian distribution + anomaly injection)
     - [ ] Multi-Tenancy Support
     - [ ] PDF Reporting Module
 

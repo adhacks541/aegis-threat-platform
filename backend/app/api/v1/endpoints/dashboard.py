@@ -1,81 +1,73 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends
 from app.services.storage import storage_service
+from app.core.security import get_current_user
 import logging
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-@router.get("/stats")
-async def get_stats():
-    """
-    Get high-level stats from Elasticsearch indices (logs-*, alerts-*, incidents-*).
-    """
-    try:
-        es = storage_service.es
-        
-        # Count documents in aliases (or wildcard patterns)
-        logs_count = es.count(index="logs-write")['count']
-        alerts_count = es.count(index="alerts-write")['count']
-        incidents_count = es.count(index="incidents-write")['count']
-        
-        # Get recent critical alerts count
-        recent_crit = es.count(index="alerts-write", body={
-            "query": {
-                "bool": {
-                    "must": [{"match": {"severity": "CRITICAL"}}],
-                    "filter": [{"range": {"timestamp": {"gte": "now-24h"}}}]
-                }
-            }
-        })['count']
 
-        return {
-            "total_logs": logs_count,
-            "total_alerts": alerts_count,
-            "total_incidents": incidents_count,
-            "critical_last_24h": recent_crit,
-            "eps": 5234,             # Simulated for resume demonstration
-            "avg_response_ms": 42    # Simulated for resume demonstration
-        }
-    except Exception as e:
-        logger.error(f"Stats Error: {e}")
-        return {"total_logs": 0, "total_alerts": 0, "total_incidents": 0, "critical_last_24h": 0, "eps": 0, "avg_response_ms": 0}
+@router.get("/stats")
+async def get_stats(current_user: dict = Depends(get_current_user)):
+    """
+    Get high-level stats from Elasticsearch indices.
+    """
+    logs_count = storage_service.count("logs-write")
+    alerts_count = storage_service.count("alerts-write")
+    incidents_count = storage_service.count("incidents-write")
+
+    # Recent critical alerts (last 24 h) — ES 8.x keyword-only
+    recent_crit = storage_service.count(
+        "alerts-write",
+        query={
+            "bool": {
+                "must": [{"match": {"severity": "CRITICAL"}}],
+                "filter": [{"range": {"timestamp": {"gte": "now-24h"}}}],
+            }
+        },
+    )
+
+    return {
+        "total_logs": logs_count,
+        "total_alerts": alerts_count,
+        "total_incidents": incidents_count,
+        "critical_last_24h": recent_crit,
+        "eps": 5234,           # simulated
+        "avg_response_ms": 42, # simulated
+    }
+
 
 @router.get("/incidents")
-async def get_incidents(limit: int = 10):
-    """
-    Get recent incidents from incidents-*
-    """
-    try:
-        res = storage_service.es.search(index="incidents-write", size=limit, sort=[{"timestamp": "desc"}])
-        return [h['_source'] for h in res['hits']['hits']]
-    except Exception as e:
-        logger.error(f"Incidents Error: {e}")
-        return []
+async def get_incidents(limit: int = 10, current_user: dict = Depends(get_current_user)):
+    """Get recent incidents."""
+    return storage_service.search(
+        "incidents-write",
+        size=limit,
+        sort=[{"timestamp": {"order": "desc"}}],
+    )
+
 
 @router.get("/alerts")
-async def get_alerts(limit: int = 20):
-    """
-    Get recent alerts from alerts-*
-    """
-    try:
-        res = storage_service.es.search(index="alerts-write", size=limit, sort=[{"timestamp": "desc"}])
-        return [h['_source'] for h in res['hits']['hits']]
-    except Exception as e:
-        logger.error(f"Alerts Error: {e}")
-        return []
+async def get_alerts(limit: int = 20, current_user: dict = Depends(get_current_user)):
+    """Get recent alerts."""
+    return storage_service.search(
+        "alerts-write",
+        size=limit,
+        sort=[{"timestamp": {"order": "desc"}}],
+    )
+
 
 @router.get("/logs")
-async def get_logs(limit: int = 50, query: str = None):
-    """
-    Get raw logs from logs-*, optional simple query string.
-    """
-    try:
-        body = {"sort": [{"timestamp": "desc"}]}
-        if query:
-            body["query"] = {"query_string": {"query": query}}
-            
-        res = storage_service.es.search(index="logs-write", body=body, size=limit)
-        return [h['_source'] for h in res['hits']['hits']]
-    except Exception as e:
-        logger.error(f"Logs Error: {e}")
-        return []
+async def get_logs(
+    limit: int = 50,
+    query: str | None = None,
+    current_user: dict = Depends(get_current_user),
+):
+    """Get raw logs, optional query string filter."""
+    q = {"query_string": {"query": query}} if query else None
+    return storage_service.search(
+        "logs-write",
+        size=limit,
+        sort=[{"timestamp": {"order": "desc"}}],
+        query=q,
+    )

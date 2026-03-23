@@ -1,40 +1,58 @@
 version: '3.8'
 
+# Load secrets from .env (copy from .env.example)
+# All services that need secrets reference this file.
+
 services:
+  # ── Infrastructure ──────────────────────────────────────────────────
   elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.9
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
     container_name: siem-elasticsearch
     environment:
       - node.name=elasticsearch
       - discovery.type=single-node
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      # Disable security for single-node dev (enable + configure certs for prod)
+      - xpack.security.enabled=false
     ports:
       - "9200:9200"
     volumes:
       - es_data:/usr/share/elasticsearch/data
     networks:
       - siem-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200/_cluster/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
 
   kibana:
-    image: docker.elastic.co/kibana/kibana:7.17.9
+    image: docker.elastic.co/kibana/kibana:8.13.0
     container_name: siem-kibana
     ports:
       - "5601:5601"
     environment:
       - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
     depends_on:
-      - elasticsearch
+      elasticsearch:
+        condition: service_healthy
     networks:
       - siem-network
 
   redis:
-    image: redis:7.0-alpine
+    image: redis:7.2-alpine
     container_name: siem-redis
     ports:
       - "6379:6379"
     networks:
       - siem-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
+  # ── Application ─────────────────────────────────────────────────────
   backend:
     build: ./backend
     container_name: siem-backend
@@ -43,12 +61,16 @@ services:
       - ./backend:/app
     ports:
       - "8000:8000"
+    env_file:
+      - .env
     environment:
       - REDIS_URL=redis://redis:6379/0
       - ELASTICSEARCH_URL=http://elasticsearch:9200
     depends_on:
-      - redis
-      - elasticsearch
+      redis:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
     networks:
       - siem-network
 
@@ -56,15 +78,23 @@ services:
     build: ./backend
     container_name: siem-worker
     command: python -m app.worker
+    volumes:
+      - ./backend:/app
+    env_file:
+      - .env
     environment:
       - REDIS_URL=redis://redis:6379/0
       - ELASTICSEARCH_URL=http://elasticsearch:9200
-      - API_URL=http://backend:8000/api/v1
+      - IPTABLES_ENABLED=${IPTABLES_ENABLED:-false}
+    # NET_ADMIN capability lets the worker call iptables (Phase 4).
+    # Only effective if IPTABLES_ENABLED=true in .env.
+    cap_add:
+      - NET_ADMIN
     depends_on:
-      - redis
-      - elasticsearch
-    volumes:
-      - ./backend:/app
+      redis:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
     networks:
       - siem-network
 
@@ -75,8 +105,11 @@ services:
     container_name: siem-frontend
     ports:
       - "3000:3000"
+    env_file:
+      - .env
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+      - NEXT_PUBLIC_WS_URL=${NEXT_PUBLIC_WS_URL:-ws://localhost:8000}
     depends_on:
       - backend
     networks:
@@ -84,7 +117,6 @@ services:
 
 volumes:
   es_data:
-
 
 networks:
   siem-network:

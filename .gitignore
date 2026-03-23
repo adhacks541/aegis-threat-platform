@@ -3,7 +3,16 @@ __pycache__/
 *.py[cod]
 *$py.class
 venv/
+.venv/
+tools-env/
+backend/venv/
+
+# Secrets — never commit
 .env
+# .env.example IS committed (template without real values)
+
+# Large dataset files
+backend/training_data.json
 
 # Docker
 es_data/

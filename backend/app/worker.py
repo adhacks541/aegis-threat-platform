@@ -181,7 +181,7 @@ def _process_single(log_entry: dict):
         logger.info(f"ML ANOMALY: {anomaly_result['explanation']}")
 
     # 5. Correlation
-    incidents = correlation_service.process_event(log_entry)
+    incidents = correlation_service.process_event(log_entry) or []
     if incidents:
         log_entry.setdefault("incidents", []).extend(incidents)
         log_entry["severity"] = "CRITICAL"

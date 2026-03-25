@@ -20,7 +20,7 @@ class CorrelationService:
         """
         ip = log_entry.get("ip") or log_entry.get("metadata", {}).get("ip")
         if not ip:
-            return
+            return []  # worker calls .extend() — must never return None
 
         # 1. State: Brute Force Attempt (Phase 1)
         # This is set by the RuleBasedDetector (T1110)

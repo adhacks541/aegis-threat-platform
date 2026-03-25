@@ -3,7 +3,7 @@ import yaml
 import os
 import logging
 import ipaddress
-from typing import Dict, Any, List
+from typing import Dict, Any
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -55,7 +55,7 @@ class ResponseService:
             score = 10
 
         # ML Modifier (Boost score if ML is confident)
-        ml_result = log_entry.get("anomaly_score") # Assuming anomalies merged into log
+        # Assuming anomalies merged into log
         # Or checking specific ML output if stored differently.
         # For now, let's look at incidents list size as a multiplier
         if len(log_entry.get("incidents", [])) > 0:

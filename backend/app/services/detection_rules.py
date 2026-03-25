@@ -2,7 +2,7 @@ import redis
 import yaml
 import os
 import logging
-from typing import List, Dict, Any
+from typing import List
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)

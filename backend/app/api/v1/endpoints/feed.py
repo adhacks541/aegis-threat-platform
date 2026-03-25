@@ -7,8 +7,6 @@ Architecture:
 
 Each message published is a JSON string (the processed log_entry dict).
 """
-import asyncio
-import json
 import logging
 
 import redis.asyncio as aioredis

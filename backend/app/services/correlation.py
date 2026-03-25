@@ -1,6 +1,5 @@
 import redis
 from app.core.config import settings
-from typing import Dict, Any, List
 
 class CorrelationService:
     def __init__(self):

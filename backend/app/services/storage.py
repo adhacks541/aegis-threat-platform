@@ -1,7 +1,6 @@
-from elasticsearch import Elasticsearch, ConnectionError as ESConnectionError
+from elasticsearch import Elasticsearch
 from app.core.config import settings
 import logging
-import time
 
 logger = logging.getLogger(__name__)
 

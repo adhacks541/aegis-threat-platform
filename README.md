@@ -215,6 +215,7 @@ Each message is a JSON-encoded processed log entry pushed in real-time.
 │   ├── tools/                    # Dataset generator, benchmarker, red-team simulator
 │   └── train_model.py            # Pipeline(StandardScaler → IsolationForest) trainer
 ├── frontend/
+│   ├── next.config.ts            # Local dev proxy (bypasses CORS for /api/*)
 │   └── app/
 │       ├── page.tsx              # Dashboard (auth gate + WebSocket client)
 │       └── components/
@@ -246,8 +247,10 @@ Each message is a JSON-encoded processed log entry pushed in real-time.
 | `test_real_api.py` | Live API integration tests |
 | `test_ilm_storage.py` | Elasticsearch ILM storage lifecycle |
 
+> **Note**: All APIs are secured via JWT. The test suite uses `tests/auth_helper.py` to auto-login. Ensure your credentials are set in `.env` or export `AEGIS_TEST_PASSWORD` before running.
+
 ```bash
-python tests/test_response_automation.py
+python3 tests/test_response_automation.py
 ```
 
 ---

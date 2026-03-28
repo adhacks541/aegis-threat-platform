@@ -290,7 +290,7 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
       </AnimatePresence>
 
       <footer className="fixed bottom-0 left-0 w-full p-2 bg-slate-950/80 backdrop-blur text-center text-[10px] text-slate-600 font-mono border-t border-slate-900 z-40">
-        AEGIS SECURE SYSTEM // UNQUAM DORMIAMUS // ENCRYPTED CONNECTION ESTABLISHED
+        AEGIS SECURE SYSTEM // UNQUAM DORMIAMUS // ENCRYPTED CONNECTION ESTABLISHED // SECURED BY ADHACKS
       </footer>
     </div>
   );

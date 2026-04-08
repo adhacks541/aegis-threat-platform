@@ -1,6 +1,5 @@
 from pydantic_settings import BaseSettings
-from pydantic import field_validator
-from typing import List, Any
+from typing import List
 import json
 
 
@@ -27,28 +26,20 @@ class Settings(BaseSettings):
         "$2b$12$KIX/Py6QEsKuvKKpLEtVJuBjXNFE9J.Q0WZRYUDf3JIApFHBvP3Ci"
     )
 
-    # CORS allowed origins — accepts:
-    #   - JSON array:          '["https://a.com","https://b.com"]'
-    #   - Comma-separated:     'https://a.com,https://b.com'
-    #   - Single origin:       'https://a.com'
-    CORS_ORIGINS: List[str] = ["http://localhost:3000"]
+    # Store as plain str so pydantic-settings v2 doesn't try to JSON-parse it
+    # (List[str] fields get JSON-parsed before validators run → SettingsError)
+    # Accepts:  https://a.com,https://b.com  OR  ["https://a.com"]  OR  https://a.com
+    CORS_ORIGINS: str = "http://localhost:3000"
 
-    @field_validator("CORS_ORIGINS", mode="before")
-    @classmethod
-    def parse_cors_origins(cls, v: Any) -> List[str]:
-        if isinstance(v, list):
-            return v
-        if isinstance(v, str):
-            v = v.strip()
-            # Try JSON array first: ["https://..."]
-            if v.startswith("["):
-                try:
-                    return json.loads(v)
-                except json.JSONDecodeError:
-                    pass
-            # Fall back to comma-separated
-            return [origin.strip() for origin in v.split(",") if origin.strip()]
-        return v
+    @property
+    def cors_origins_list(self) -> List[str]:
+        v = self.CORS_ORIGINS.strip()
+        if v.startswith("["):
+            try:
+                return json.loads(v)
+            except json.JSONDecodeError:
+                pass
+        return [o.strip() for o in v.split(",") if o.strip()]
 
     class Config:
         case_sensitive = True

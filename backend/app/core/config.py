@@ -9,6 +9,8 @@ class Settings(BaseSettings):
 
     REDIS_URL: str = "redis://localhost:6379/0"
     ELASTICSEARCH_URL: str = "http://localhost:9200"
+    ELASTICSEARCH_USERNAME: str = "elastic"
+    ELASTICSEARCH_PASSWORD: str = ""  # set in .env / Render env vars
 
     # Real World APIs
     IPINFO_TOKEN: str = ""

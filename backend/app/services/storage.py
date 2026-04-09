@@ -7,7 +7,14 @@ logger = logging.getLogger(__name__)
 
 class StorageService:
     def __init__(self):
-        self.es = Elasticsearch(settings.ELASTICSEARCH_URL)
+        # Elastic Cloud requires basic auth — pass credentials if password is set
+        es_kwargs: dict = {"hosts": [settings.ELASTICSEARCH_URL]}
+        if settings.ELASTICSEARCH_PASSWORD:
+            es_kwargs["basic_auth"] = (
+                settings.ELASTICSEARCH_USERNAME,
+                settings.ELASTICSEARCH_PASSWORD,
+            )
+        self.es = Elasticsearch(**es_kwargs)
         # ILM Aliases
         self.log_alias = "logs-write"
         self.alert_alias = "alerts-write"

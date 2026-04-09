@@ -1,15 +1,17 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: "standalone",
+  // NOTE: Do NOT use output: "standalone" on Vercel — it breaks the deployment.
+  // "standalone" is only for self-hosted Docker. Vercel manages its own output format.
 
-  // Development proxy — forwards /api/* and WebSocket /api/v1/ws/* to the
-  // FastAPI backend so the browser never hits CORS issues during local dev.
+  // Proxy /api/* to the FastAPI backend (Render in production, localhost in dev)
   async rewrites() {
+    const backendUrl =
+      process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
     return [
       {
         source: "/api/:path*",
-        destination: "http://localhost:8000/api/:path*",
+        destination: `${backendUrl}/api/:path*`,
       },
     ];
   },

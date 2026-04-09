@@ -1,8 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // NOTE: Do NOT use output: "standalone" on Vercel — it breaks the deployment.
-  // "standalone" is only for self-hosted Docker. Vercel manages its own output format.
+  // Vercel supports standalone mode natively. Also needed for Docker self-hosting.
+  output: "standalone",
 
   // Proxy /api/* to the FastAPI backend (Render in production, localhost in dev)
   async rewrites() {

@@ -8,6 +8,19 @@
 
 ---
 
+## 🌐 Live Deployment
+
+| Service | URL | Platform |
+|:--------|:----|:---------|
+| **SOC Dashboard** | [aegis-threat-platform-git-main-adhacks541s-projects.vercel.app](https://aegis-threat-platform-git-main-adhacks541s-projects.vercel.app) | Vercel |
+| **Backend API** | [aegis-threat-platform.onrender.com](https://aegis-threat-platform.onrender.com) | Render |
+| **API Docs** | [aegis-threat-platform.onrender.com/docs](https://aegis-threat-platform.onrender.com/docs) | Render |
+
+> **Default credentials:** `admin` / `aegis-admin`
+> ⚠️ Free Render tier sleeps after 15 min of inactivity — first request may take ~30s to wake up.
+
+---
+
 ## 🚀 Key Features
 
 ### 🧠 Advanced Detection Engine
@@ -20,7 +33,7 @@
 - **JWT Authentication**: Every protected endpoint requires a Bearer token issued via OAuth2 password flow (`POST /api/v1/auth/token`).
 - **IP Blocking at Ingestion**: Blocked IPs receive HTTP 403 before any processing — enforced at the FastAPI layer via Redis.
 - **Rate Limiting**: Per-IP rate limiter on all ingest routes.
-- **Secrets via `.env`**: All credentials (JWT secret key, API tokens, bcrypt password hashes) are loaded from `.env` — never hardcoded.
+- **Secrets via environment variables**: All credentials (JWT secret key, API tokens, bcrypt password hashes) are loaded from environment variables — never hardcoded.
 
 ### ⚡ Real-Time WebSocket Feed
 - **Architecture**: Worker → Redis pub/sub (`aegis:feed`) → FastAPI WebSocket → Browser
@@ -28,7 +41,7 @@
 - **JWT-guarded WebSocket**: Clients authenticate via `?token=<JWT>` query param before the connection is accepted.
 - **Live status indicator**: Dashboard header shows `🟢 WS LIVE` / `🟡 CONNECTING` / `🔴 POLLING`.
 
-### 🛡️ Automated Response (SOAR) + iptables
+### 🛡️ Automated Response (SOAR)
 - **Redis blocking**: High-risk IPs are added to `blocked:{ip}` Redis keys with TTL-based auto-expiry.
 - **Real iptables enforcement**: Worker optionally calls `iptables -I INPUT -s <ip> -j DROP` and syncs removals on a 30-second loop tied to Redis TTL expirations (no permanent blocks).
 - **YAML-driven policy**: Block threshold, duration, and IP whitelist configurable in `response_config.yaml`.
@@ -51,63 +64,69 @@
 
 | Component | Technology | Purpose |
 | :--- | :--- | :--- |
-| **Frontend** | Next.js 14, React, Tailwind | SOC Dashboard + Auth UI |
-| **Backend API** | Python (FastAPI) | Log Ingestion, REST API, WebSocket |
+| **Frontend** | Next.js 16, React 19, Tailwind CSS 4 | SOC Dashboard + Auth UI |
+| **Backend API** | Python 3.11, FastAPI | Log Ingestion, REST API, WebSocket |
 | **Auth** | python-jose (JWT) + passlib (bcrypt) | Stateless authentication |
-| **Processing** | Python async workers | ETL, Detection, Correlation, iptables |
+| **Processing** | Python async workers | ETL, Detection, Correlation |
 | **Stream Buffer** | Redis Streams | Decouples ingestion from processing |
 | **Pub/Sub** | Redis pub/sub | Worker → WebSocket fan-out |
-| **State Store** | Redis | Risk scoring, blocking, rate limiting |
-| **Log Storage** | Elasticsearch 8.13 | Search & Analytics |
+| **State Store** | Redis Cloud | Risk scoring, blocking, rate limiting |
+| **Log Storage** | Elasticsearch 8.x (Elastic Cloud) | Search & Analytics |
 | **ML** | Scikit-Learn (Pipeline + IsolationForest) | Calibrated anomaly detection |
-| **Reverse Proxy** | Nginx | SSL termination, WS upgrades |
-| **CI/CD** | GitHub Actions | Lint → Build → Push GHCR → Deploy |
+| **Frontend Hosting** | Vercel | Auto-deploy from `main` branch |
+| **Backend Hosting** | Render (Docker) | Auto-deploy from `main` branch |
+| **CI/CD** | GitHub Actions | Lint → Build → validate on every push |
 
 ---
 
-## ⚡ Quick Start
+## ⚡ Quick Start (Local Development)
 
 ### Prerequisites
 - Docker & Docker Compose
-- Python 3.9+ (for local scripts)
-- Node.js 20+ (for frontend development)
+- Python 3.11+
+- Node.js 20+
 
-### 1. Configure Secrets
+### 1. Clone & Configure
 
 ```bash
+git clone https://github.com/adhacks541/aegis-threat-platform.git
+cd aegis-threat-platform
 cp .env.example .env
 ```
 
-Edit `.env` and set at minimum:
+Edit `.env` with your credentials:
 
 ```bash
-# Generate a real JWT secret:
+# Generate JWT secret:
 openssl rand -hex 32
 
-# Generate a bcrypt password hash:
+# Generate bcrypt password hash:
 python3 -c "from passlib.context import CryptContext; c=CryptContext(schemes=['bcrypt']); print(c.hash('your-password'))"
 ```
 
-### 2. Launch the Stack
+### 2. Run the Backend
 
 ```bash
-docker compose up -d --build
+cd backend
+python -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+```
+
+### 3. Run the Frontend
+
+```bash
+cd frontend
+npm install
+NEXT_PUBLIC_API_URL=http://localhost:8000 npm run dev
 ```
 
 | Service | URL |
 |---------|-----|
 | **Dashboard** | http://localhost:3000 |
 | **API Docs** | http://localhost:8000/docs |
-| **Kibana** | http://localhost:5601 |
 
-> Default login: `admin` / `aegis-admin`  
-> Change `ADMIN_PASSWORD_HASH` in `.env` before production use.
-
-### 3. Initialize Elasticsearch
-
-```bash
-docker compose exec worker python tools/setup_elasticsearch.py
-```
+> Default login: `admin` / `aegis-admin`
 
 ### 4. Train the ML Model
 
@@ -119,26 +138,7 @@ python3 backend/tools/generate_dataset.py
 python3 backend/train_model.py
 ```
 
-Sample output:
-```
-Training on 10000 normal records…
-Pipeline (scaler + model) saved to model.joblib
-  Hour:      mean=11.48, std=6.90
-  MsgLen:    mean=35.24, std=12.34
-  IsSSH:     mean=0.15,  std=0.36
-  LoginRate: mean=9.66,  std=6.04
-```
-
-### 5. Verify Functionality (Red Team Simulation)
-
-```bash
-docker compose exec worker python tools/verify_full_system.py
-```
-
-Simulates: SSH brute force → suspicious admin login → data exfiltration → privilege escalation.  
-Expect **✅ PASS** for all checks.
-
-### 6. Health Check
+### 5. Health Check
 
 ```bash
 curl http://localhost:8000/health
@@ -167,8 +167,8 @@ Returns `{ "access_token": "...", "token_type": "bearer" }`
 
 ### Ingest (protected)
 ```http
-POST /api/v1/ingest/logs        # Structured JSON log(s)
-POST /api/v1/ingest/raw         # Raw syslog text
+POST /api/v1/ingest/logs        # Structured JSON log(s) — single or batch
+POST /api/v1/ingest/raw         # Raw syslog/plain-text log
 ```
 
 ### Dashboard (protected)
@@ -179,9 +179,9 @@ GET /api/v1/dashboard/incidents
 GET /api/v1/dashboard/logs?query=<lucene>
 ```
 
-### WebSocket Live Feed (JWT via query param)
+### WebSocket Live Feed
 ```
-ws://localhost:8000/api/v1/ws/feed?token=<JWT>
+wss://aegis-threat-platform.onrender.com/api/v1/ws/feed?token=<JWT>
 ```
 Each message is a JSON-encoded processed log entry pushed in real-time.
 
@@ -198,7 +198,7 @@ Each message is a JSON-encoded processed log entry pushed in real-time.
 │   │   │   ├── dashboard.py      # GET  /dashboard/* (JWT-guarded, ES 8.x)
 │   │   │   └── feed.py           # WS   /ws/feed     (real-time pub/sub)
 │   │   ├── core/
-│   │   │   ├── config.py         # Settings (env-driven via .env)
+│   │   │   ├── config.py         # Settings (env-driven, pydantic-settings v2)
 │   │   │   ├── security.py       # JWT issuance + get_current_user dependency
 │   │   │   └── limiter.py        # Per-IP rate limiter
 │   │   ├── models/               # Pydantic models (LogEntry, etc.)
@@ -208,14 +208,16 @@ Each message is a JSON-encoded processed log entry pushed in real-time.
 │   │       ├── detection_rules.py# Rule engine (Sigma-like)
 │   │       ├── detection_ml.py   # ML pipeline with calibrated scaler
 │   │       ├── correlation.py    # Multi-stage incident engine
-│   │       ├── enrichment.py     # GeoIP & Threat Intel
-│   │       ├── storage.py        # Elasticsearch 8.x client (no body= kwarg)
+│   │       ├── enrichment.py     # GeoIP & Threat Intel (ipinfo + AbuseIPDB)
+│   │       ├── storage.py        # Elasticsearch 8.x client (basic_auth)
 │   │       └── response.py       # Automated blocking (Redis + iptables)
-│   ├── app/worker.py             # Stream consumer → pub/sub publisher → iptables sync
+│   ├── app/worker.py             # Stream consumer → pub/sub publisher
 │   ├── tools/                    # Dataset generator, benchmarker, red-team simulator
+│   ├── Dockerfile                # Python 3.11-slim image
 │   └── train_model.py            # Pipeline(StandardScaler → IsolationForest) trainer
 ├── frontend/
-│   ├── next.config.ts            # Local dev proxy (bypasses CORS for /api/*)
+│   ├── next.config.ts            # API proxy rewrites + standalone output
+│   ├── vercel.json               # Vercel deployment config
 │   └── app/
 │       ├── page.tsx              # Dashboard (auth gate + WebSocket client)
 │       └── components/
@@ -224,9 +226,45 @@ Each message is a JSON-encoded processed log entry pushed in real-time.
 │   └── aegis.conf                # SSL termination + WebSocket upgrade config
 ├── tests/                        # 12-file test suite
 ├── .env.example                  # Secret template (commit this, NOT .env)
-├── .github/workflows/ci-cd.yml  # 4-job CI/CD: lint → build → GHCR → VPS deploy
-└── docker-compose.yml            # Full stack (ES 8.13, Redis 7.2, NET_ADMIN cap)
+├── .github/workflows/ci-cd.yml  # CI: lint → build (Render & Vercel auto-deploy)
+└── docker-compose.yml            # Local full-stack (ES, Redis, all services)
 ```
+
+---
+
+## 🚢 Cloud Deployment
+
+### Backend → Render
+
+1. Go to [render.com](https://render.com) → New Web Service → Connect `adhacks541/aegis-threat-platform`
+2. Set **Root Directory** = `backend`, **Language** = `Docker`
+3. Add environment variables:
+
+| Variable | Description |
+|----------|-------------|
+| `SECRET_KEY` | `openssl rand -hex 32` |
+| `ADMIN_USERNAME` | `admin` |
+| `ADMIN_PASSWORD_HASH` | bcrypt hash of your password |
+| `REDIS_URL` | `redis://:password@host:port` |
+| `ELASTICSEARCH_URL` | Elastic Cloud endpoint |
+| `ELASTICSEARCH_USERNAME` | `elastic` |
+| `ELASTICSEARCH_PASSWORD` | Elastic Cloud password |
+| `CORS_ORIGINS` | `https://your-vercel-app.vercel.app` |
+| `IPINFO_TOKEN` | From [ipinfo.io](https://ipinfo.io/account) |
+| `ABUSEIPDB_API_KEY` | From [abuseipdb.com](https://www.abuseipdb.com/account/api) |
+
+### Frontend → Vercel
+
+1. Go to [vercel.com](https://vercel.com) → New Project → Import `adhacks541/aegis-threat-platform`
+2. Set **Root Directory** = `frontend`
+3. Add environment variables:
+
+| Variable | Value |
+|----------|-------|
+| `NEXT_PUBLIC_API_URL` | `https://aegis-threat-platform.onrender.com` |
+| `NEXT_PUBLIC_WS_URL` | `wss://aegis-threat-platform.onrender.com` |
+
+Every push to `main` automatically redeploys both services.
 
 ---
 
@@ -247,45 +285,12 @@ Each message is a JSON-encoded processed log entry pushed in real-time.
 | `test_real_api.py` | Live API integration tests |
 | `test_ilm_storage.py` | Elasticsearch ILM storage lifecycle |
 
-> **Note**: All APIs are secured via JWT. The test suite uses `tests/auth_helper.py` to auto-login. Ensure your credentials are set in `.env` or export `AEGIS_TEST_PASSWORD` before running.
+> **Note**: All APIs are secured via JWT. The test suite uses `tests/auth_helper.py` to auto-login.
 
 ```bash
-python3 tests/test_response_automation.py
+cd backend && pip install pytest pytest-asyncio httpx
+pytest ../tests/ -v --tb=short
 ```
-
----
-
-## 🚢 Production Deployment (VPS)
-
-### 1. Nginx (SSL + WebSocket)
-```bash
-sudo cp nginx/aegis.conf /etc/nginx/sites-available/aegis
-sudo ln -s /etc/nginx/sites-available/aegis /etc/nginx/sites-enabled/
-sudo certbot --nginx -d your-domain.com
-sudo nginx -t && sudo systemctl reload nginx
-```
-
-### 2. iptables Enforcement
-Set in `.env`:
-```bash
-IPTABLES_ENABLED=true
-```
-The worker container has `cap_add: [NET_ADMIN]` — blocks are automatically removed when Redis TTL expires.
-
-### 3. CI/CD via GitHub Actions
-Add these secrets to your GitHub repository (`Settings → Secrets`):
-
-| Secret | Value |
-|--------|-------|
-| `VPS_HOST` | Server IP |
-| `VPS_USER` | SSH username |
-| `VPS_SSH_KEY` | Private SSH key |
-| `DOMAIN` | your-domain.com |
-| `SECRET_KEY` | `openssl rand -hex 32` |
-| `ADMIN_USERNAME` | Admin login |
-| `ADMIN_PASSWORD_HASH` | bcrypt hash |
-
-Every push to `main` → lints, builds, pushes Docker images to GHCR, and deploys to your VPS automatically.
 
 ---
 
@@ -301,7 +306,8 @@ Every push to `main` → lints, builds, pushes Docker images to GHCR, and deploy
 - [x] **Real-Time WebSocket Feed**: Redis pub/sub → browser (zero polling)
 - [x] **Calibrated ML Scaler**: StandardScaler persisted in pipeline
 - [x] **Real iptables Enforcement**: TTL-synced block/unblock cycle
-- [x] **Production Packaging**: `.env`, Nginx SSL config, GitHub Actions CI/CD
+- [x] **Cloud Deployment**: Render (backend) + Vercel (frontend) + Elastic Cloud + Redis Cloud
+- [x] **CI/CD Pipeline**: GitHub Actions — lint, type-check, and build on every push
 - [ ] Multi-Tenancy Support
 - [ ] PDF Incident Report Export
 - [ ] MITRE ATT&CK Framework Tagging

@@ -31,17 +31,21 @@ class Settings(BaseSettings):
     # Store as plain str so pydantic-settings v2 doesn't try to JSON-parse it
     # (List[str] fields get JSON-parsed before validators run → SettingsError)
     # Accepts:  https://a.com,https://b.com  OR  ["https://a.com"]  OR  https://a.com
-    CORS_ORIGINS: str = "http://localhost:3000"
+    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:3001"
 
     @property
     def cors_origins_list(self) -> List[str]:
         v = self.CORS_ORIGINS.strip()
         if v.startswith("["):
             try:
-                return json.loads(v)
+                origins = json.loads(v)
             except json.JSONDecodeError:
-                pass
-        return [o.strip() for o in v.split(",") if o.strip()]
+                origins = [o.strip() for o in v.split(",") if o.strip()]
+        else:
+            origins = [o.strip() for o in v.split(",") if o.strip()]
+        # Always allow all Vercel preview/prod URLs (safe for this project)
+        origins.append("https://*.vercel.app")
+        return origins
 
     class Config:
         case_sensitive = True

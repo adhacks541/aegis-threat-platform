@@ -23,6 +23,9 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
     setLoading(true);
     setError(null);
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10_000); // 10 s timeout
+
     try {
       const form = new URLSearchParams();
       form.append("username", username);
@@ -32,19 +35,25 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: form.toString(),
+        signal: controller.signal,
       });
 
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.detail || "Authentication failed");
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || `Server error ${res.status}`);
       }
 
       const data = await res.json();
       localStorage.setItem("aegis_token", data.access_token);
       onSuccess(data.access_token);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Authentication failed");
+      if (err instanceof DOMException && err.name === "AbortError") {
+        setError("Connection timed out — backend unreachable or CORS blocked");
+      } else {
+        setError(err instanceof Error ? err.message : "Authentication failed");
+      }
     } finally {
+      clearTimeout(timeout);
       setLoading(false);
     }
   };

@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     # Clerk (external auth provider)
     CLERK_SECRET_KEY: str = ""
     CLERK_JWKS_URL: str = "https://balanced-dory-25.clerk.accounts.dev/.well-known/jwks.json"
+    # Comma-separated list of allowed email addresses.
+    # Leave empty to disable the allowlist (dev only — NEVER in production).
+    ALLOWED_EMAILS: str = ""
 
     # Admin credentials (override via .env)
     ADMIN_USERNAME: str = "admin"

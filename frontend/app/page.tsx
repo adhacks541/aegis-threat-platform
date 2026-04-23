@@ -65,6 +65,13 @@ export default function Root() {
         });
         clearTimeout(timeout);
 
+        if (res.status === 403) {
+          // Not on allowlist — sign out and send to /unauthorized
+          await signOut();
+          window.location.href = "/unauthorized";
+          return;
+        }
+
         if (!res.ok) throw new Error(`Backend auth failed: ${res.status}`);
         const data = await res.json();
         localStorage.setItem("aegis_token", data.access_token);

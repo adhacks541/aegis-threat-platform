@@ -29,6 +29,17 @@ export default function RootLayout({
     <ClerkProvider
       signInUrl="/sign-in"
       signUpUrl="/sign-up"
+      appearance={{
+        variables: {
+          colorPrimary: "#06b6d4",
+          colorBackground: "#0f172a",
+          colorInputBackground: "#1e293b",
+          colorInputText: "#e2e8f0",
+          colorText: "#e2e8f0",
+          colorTextSecondary: "#94a3b8",
+          colorNeutral: "#e2e8f0",
+        },
+      }}
     >
       <html lang="en" className="dark">
         <body

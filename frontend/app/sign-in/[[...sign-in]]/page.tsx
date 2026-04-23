@@ -30,29 +30,67 @@ export default function SignInPage() {
               colorInputBackground: "#1e293b",
               colorInputText: "#e2e8f0",
               colorText: "#e2e8f0",
-              colorTextSecondary: "#64748b",
-              colorNeutral: "#334155",
+              colorTextSecondary: "#94a3b8",
+              colorTextOnPrimaryBackground: "#ffffff",
+              colorNeutral: "#e2e8f0",
+              colorDanger: "#f87171",
               borderRadius: "0.75rem",
               fontFamily: "var(--font-jetbrains-mono), monospace",
             },
             elements: {
-              rootBox: "w-full",
-              card: "bg-slate-900/80 border border-cyan-900/50 shadow-[0_0_60px_rgba(6,182,212,0.1)] backdrop-blur-xl",
-              headerTitle: "text-cyan-300 font-bold tracking-widest uppercase text-sm",
-              headerSubtitle: "text-slate-500 text-xs",
-              formButtonPrimary:
-                "bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 tracking-widest uppercase font-bold shadow-[0_0_20px_rgba(6,182,212,0.3)]",
+              rootBox: "w-full max-w-md",
+              card: "bg-slate-900/90 border border-cyan-900/40 shadow-[0_0_60px_rgba(6,182,212,0.08)] backdrop-blur-xl !text-slate-200",
+              // Header
+              headerTitle: "!text-cyan-300 font-bold tracking-widest uppercase text-sm",
+              headerSubtitle: "!text-slate-400 text-xs",
+              // Form
+              formFieldLabel: "!text-slate-400 text-xs uppercase tracking-widest",
               formFieldInput:
-                "bg-slate-800/60 border-slate-700 focus:border-cyan-500 text-slate-200 font-mono",
-              formFieldLabel: "text-slate-500 text-xs uppercase tracking-widest",
-              footerActionLink: "text-cyan-500 hover:text-cyan-300",
-              identityPreviewText: "text-slate-300",
-              identityPreviewEditButton: "text-cyan-500",
-              dividerLine: "bg-slate-800",
-              dividerText: "text-slate-600",
+                "!bg-slate-800/70 !border-slate-700 focus:!border-cyan-500 !text-slate-100 font-mono placeholder:!text-slate-600",
+              formFieldHintText: "!text-slate-500",
+              formFieldSuccessText: "!text-emerald-400",
+              formFieldErrorText: "!text-red-400",
+              formFieldWarningText: "!text-amber-400",
+              formButtonPrimary:
+                "!bg-gradient-to-r !from-cyan-600 !to-blue-600 hover:!from-cyan-500 hover:!to-blue-500 tracking-widest uppercase font-bold shadow-[0_0_20px_rgba(6,182,212,0.3)] !text-white",
+              formButtonReset: "!text-cyan-400 hover:!text-cyan-300",
+              // Social buttons
               socialButtonsBlockButton:
-                "border-slate-700 text-slate-300 hover:bg-slate-800 hover:border-cyan-900",
-              socialButtonsBlockButtonText: "text-slate-300",
+                "!border-slate-700 !text-slate-200 hover:!bg-slate-800 hover:!border-cyan-900/50 !bg-slate-800/50",
+              socialButtonsBlockButtonText: "!text-slate-200 font-medium",
+              socialButtonsBlockButtonArrow: "!text-slate-400",
+              socialButtonsProviderIcon: "brightness-110",
+              // Divider
+              dividerLine: "!bg-slate-700",
+              dividerText: "!text-slate-500",
+              // Footer
+              footerAction: "!text-slate-400",
+              footerActionText: "!text-slate-400",
+              footerActionLink: "!text-cyan-400 hover:!text-cyan-300 font-semibold",
+              footerPages: "!text-slate-500",
+              footerPagesLink: "!text-slate-400",
+              // Identity preview
+              identityPreview: "!bg-slate-800/50 !border-slate-700",
+              identityPreviewText: "!text-slate-200",
+              identityPreviewEditButton: "!text-cyan-400 hover:!text-cyan-300",
+              identityPreviewEditButtonIcon: "!text-cyan-400",
+              // Internal card
+              cardBox: "!bg-transparent",
+              main: "!text-slate-200",
+              // Alert / badge
+              badge: "!text-slate-300 !bg-slate-800 !border-slate-700",
+              alert: "!text-slate-200 !bg-slate-800/50 !border-slate-700",
+              alertText: "!text-slate-200",
+              // OTP
+              otpCodeFieldInput: "!bg-slate-800 !border-slate-600 !text-slate-100",
+              // User button / profile
+              userButtonPopoverCard: "!bg-slate-900 !border-slate-700",
+              userButtonPopoverActionButton: "!text-slate-200",
+              userButtonPopoverFooter: "!text-slate-500",
+              // Misc text that Clerk injects
+              formHeaderTitle: "!text-slate-200",
+              formHeaderSubtitle: "!text-slate-400",
+              alternativeMethodsBlockButton: "!text-slate-300 !border-slate-700 hover:!bg-slate-800",
             },
           }}
         />

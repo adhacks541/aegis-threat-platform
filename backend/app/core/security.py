@@ -15,7 +15,9 @@ Optional (returns None if no token):
 """
 from datetime import datetime, timedelta, timezone
 from typing import Optional
+import time
 
+import requests as _requests
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
@@ -40,6 +42,73 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 def get_password_hash(plain: str) -> str:
     return pwd_context.hash(plain)
+
+
+# ---------------------------------------------------------------------------
+# Clerk JWT verification (JWKS-based RS256)
+# ---------------------------------------------------------------------------
+_jwks_cache: dict = {"keys": [], "fetched_at": 0.0}
+_JWKS_TTL = 300  # re-fetch every 5 minutes
+
+
+def _get_clerk_jwks() -> list:
+    """Return cached JWKS keys, refreshing if stale."""
+    now = time.time()
+    if now - _jwks_cache["fetched_at"] > _JWKS_TTL or not _jwks_cache["keys"]:
+        try:
+            resp = _requests.get(settings.CLERK_JWKS_URL, timeout=5)
+            resp.raise_for_status()
+            _jwks_cache["keys"] = resp.json().get("keys", [])
+            _jwks_cache["fetched_at"] = now
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"Could not fetch Clerk JWKS: {exc}",
+            )
+    return _jwks_cache["keys"]
+
+
+def verify_clerk_token(token: str) -> dict:
+    """
+    Verify a Clerk-issued JWT against Clerk's JWKS endpoint.
+    Returns the decoded payload with user info (sub = Clerk user ID).
+    """
+    try:
+        header = jwt.get_unverified_header(token)
+        kid = header.get("kid")
+    except JWTError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Invalid Clerk token header: {exc}",
+        )
+
+    keys = _get_clerk_jwks()
+    key = next((k for k in keys if k.get("kid") == kid), None)
+    if key is None:
+        # kid not found — force refresh and retry once
+        _jwks_cache["fetched_at"] = 0.0
+        keys = _get_clerk_jwks()
+        key = next((k for k in keys if k.get("kid") == kid), None)
+
+    if key is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Clerk signing key not found",
+        )
+
+    try:
+        payload = jwt.decode(
+            token,
+            key,
+            algorithms=["RS256"],
+            options={"verify_aud": False},  # Clerk doesn't require aud claim
+        )
+        return payload
+    except JWTError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Clerk token invalid: {exc}",
+        )
 
 
 # ---------------------------------------------------------------------------

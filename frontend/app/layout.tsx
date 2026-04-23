@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Orbitron, JetBrains_Mono } from "next/font/google";
+import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 
 const orbitron = Orbitron({
@@ -25,14 +26,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
-      <body
-        className={`${orbitron.variable} ${jetbrainsMono.variable} antialiased bg-slate-950 text-slate-200 overflow-x-hidden selection:bg-cyan-500/30 selection:text-cyan-200`}
-      >
-        <div className="fixed inset-0 z-[-1] bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-900 via-[#020617] to-black opacity-80 pointer-events-none" />
-        <div className="fixed inset-0 z-[-1] bg-cyber-grid pointer-events-none opacity-20" />
-        {children}
-      </body>
-    </html>
+    <ClerkProvider>
+      <html lang="en" className="dark">
+        <body
+          className={`${orbitron.variable} ${jetbrainsMono.variable} antialiased bg-slate-950 text-slate-200 overflow-x-hidden selection:bg-cyan-500/30 selection:text-cyan-200`}
+        >
+          <div className="fixed inset-0 z-[-1] bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-900 via-[#020617] to-black opacity-80 pointer-events-none" />
+          <div className="fixed inset-0 z-[-1] bg-cyber-grid pointer-events-none opacity-20" />
+          {children}
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

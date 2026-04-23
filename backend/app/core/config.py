@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
 
+    # Clerk (external auth provider)
+    CLERK_SECRET_KEY: str = ""
+    CLERK_JWKS_URL: str = "https://balanced-dory-25.clerk.accounts.dev/.well-known/jwks.json"
+
     # Admin credentials (override via .env)
     ADMIN_USERNAME: str = "admin"
     ADMIN_PASSWORD_HASH: str = (

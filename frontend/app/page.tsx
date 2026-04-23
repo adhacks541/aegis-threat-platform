@@ -6,7 +6,7 @@ import {
   Shield, AlertTriangle, Activity, Terminal,
   Lock, Globe, Cpu, Radio, Zap, LogOut,
 } from "lucide-react";
-import LoginForm from "./components/LoginForm";
+import { useAuth } from "@clerk/nextjs";
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -28,26 +28,88 @@ async function apiFetch(url: string, token: string) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Root — Auth gate
+// Root — Clerk Auth gate
 // ─────────────────────────────────────────────────────────────
 export default function Root() {
-  const [token, setToken] = useState<string | null>(null);
+  const { isSignedIn, getToken, signOut } = useAuth();
+  const [backendToken, setBackendToken] = useState<string | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
 
-  // Restore saved token on mount
+  // Restore cached backend token or exchange a fresh Clerk token
   useEffect(() => {
-    const saved = localStorage.getItem("aegis_token");
-    if (saved) setToken(saved);
-  }, []);
+    if (!isSignedIn) {
+      setBackendToken(null);
+      return;
+    }
+
+    const cached = localStorage.getItem("aegis_token");
+    if (cached) {
+      setBackendToken(cached);
+      return;
+    }
+
+    // Exchange Clerk session token → backend JWT
+    (async () => {
+      try {
+        const clerkToken = await getToken();
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10_000);
+
+        const res = await fetch(`${API_BASE}/api/v1/auth/clerk`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${clerkToken}`,
+          },
+          signal: controller.signal,
+        });
+        clearTimeout(timeout);
+
+        if (!res.ok) throw new Error(`Backend auth failed: ${res.status}`);
+        const data = await res.json();
+        localStorage.setItem("aegis_token", data.access_token);
+        setBackendToken(data.access_token);
+      } catch (err: unknown) {
+        setAuthError(
+          err instanceof Error ? err.message : "Backend connection failed"
+        );
+      }
+    })();
+  }, [isSignedIn, getToken]);
 
   const handleLogout = () => {
     localStorage.removeItem("aegis_token");
-    setToken(null);
+    setBackendToken(null);
+    signOut();
   };
 
-  const handleLogin = (newToken: string) => setToken(newToken);
+  // Not signed in → middleware redirects, but show nothing here
+  if (!isSignedIn) return null;
 
-  if (!token) return <LoginForm onSuccess={handleLogin} />;
-  return <Dashboard token={token} onLogout={handleLogout} />;
+  if (authError)
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-red-400 bg-red-950/40 border border-red-500/30 rounded-xl p-8 max-w-md text-center font-mono">
+          <p className="text-lg font-bold mb-2">⚠ Backend Unreachable</p>
+          <p className="text-sm text-red-300">{authError}</p>
+          <p className="text-xs text-slate-500 mt-4">
+            Ensure the backend is running on {API_BASE}
+          </p>
+        </div>
+      </div>
+    );
+
+  if (!backendToken)
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-cyan-400 font-mono text-sm flex items-center gap-3">
+          <span className="w-4 h-4 border-2 border-cyan-500/30 border-t-cyan-400 rounded-full animate-spin" />
+          ESTABLISHING SECURE CHANNEL…
+        </div>
+      </div>
+    );
+
+  return <Dashboard token={backendToken} onLogout={handleLogout} />;
 }
 
 // ─────────────────────────────────────────────────────────────

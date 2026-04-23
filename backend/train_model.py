@@ -6,8 +6,9 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 import os
 
-DATASET_FILE = "backend/training_data.json"
-MODEL_FILE = "model.joblib"
+_HERE = os.path.dirname(os.path.abspath(__file__))
+DATASET_FILE = os.path.join(_HERE, "training_data.json")
+MODEL_FILE = os.path.join(_HERE, "model.joblib")
 
 
 def train():

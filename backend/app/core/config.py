@@ -24,8 +24,8 @@ class Settings(BaseSettings):
     # Admin credentials (override via .env)
     ADMIN_USERNAME: str = "admin"
     ADMIN_PASSWORD_HASH: str = (
-        # bcrypt of "aegis-admin" — override in .env with a real hash
-        "$2b$12$KIX/Py6QEsKuvKKpLEtVJuBjXNFE9J.Q0WZRYUDf3JIApFHBvP3Ci"
+        # bcrypt of "admin" — override in .env with a real hash
+        "$2b$12$GpTgMrps0Nrrx10tE89SvOAzkSk9NDUTORkF3ditb0kv7ft3Q56NC"
     )
 
     # Store as plain str so pydantic-settings v2 doesn't try to JSON-parse it

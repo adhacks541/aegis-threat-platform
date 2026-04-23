@@ -33,18 +33,22 @@ async function apiFetch(url: string, token: string) {
 export default function Root() {
   const { isSignedIn, getToken, signOut } = useAuth();
   const [backendToken, setBackendToken] = useState<string | null>(null);
-  const [authError, setAuthError] = useState<string | null>(null);
+  const [backendOnline, setBackendOnline] = useState(true);
+  const [loading, setLoading] = useState(true);
 
   // Restore cached backend token or exchange a fresh Clerk token
   useEffect(() => {
     if (!isSignedIn) {
       setBackendToken(null);
+      setLoading(false);
       return;
     }
 
     const cached = localStorage.getItem("aegis_token");
     if (cached) {
       setBackendToken(cached);
+      setBackendOnline(true);
+      setLoading(false);
       return;
     }
 
@@ -53,7 +57,7 @@ export default function Root() {
       try {
         const clerkToken = await getToken();
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 10_000);
+        const timeout = setTimeout(() => controller.abort(), 8_000);
 
         const res = await fetch(`${API_BASE}/api/v1/auth/clerk`, {
           method: "POST",
@@ -66,7 +70,6 @@ export default function Root() {
         clearTimeout(timeout);
 
         if (res.status === 403) {
-          // Not on allowlist — sign out and send to /unauthorized
           await signOut();
           window.location.href = "/unauthorized";
           return;
@@ -76,13 +79,16 @@ export default function Root() {
         const data = await res.json();
         localStorage.setItem("aegis_token", data.access_token);
         setBackendToken(data.access_token);
-      } catch (err: unknown) {
-        setAuthError(
-          err instanceof Error ? err.message : "Backend connection failed"
-        );
+        setBackendOnline(true);
+      } catch {
+        // Backend is down — run in standalone/demo mode
+        setBackendToken("offline_session");
+        setBackendOnline(false);
+      } finally {
+        setLoading(false);
       }
     })();
-  }, [isSignedIn, getToken]);
+  }, [isSignedIn, getToken, signOut]);
 
   const handleLogout = () => {
     localStorage.removeItem("aegis_token");
@@ -90,23 +96,9 @@ export default function Root() {
     signOut();
   };
 
-  // Not signed in → middleware redirects, but show nothing here
   if (!isSignedIn) return null;
 
-  if (authError)
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-red-400 bg-red-950/40 border border-red-500/30 rounded-xl p-8 max-w-md text-center font-mono">
-          <p className="text-lg font-bold mb-2">⚠ Backend Unreachable</p>
-          <p className="text-sm text-red-300">{authError}</p>
-          <p className="text-xs text-slate-500 mt-4">
-            Ensure the backend is running on {API_BASE}
-          </p>
-        </div>
-      </div>
-    );
-
-  if (!backendToken)
+  if (loading)
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-cyan-400 font-mono text-sm flex items-center gap-3">
@@ -116,7 +108,20 @@ export default function Root() {
       </div>
     );
 
-  return <Dashboard token={backendToken} onLogout={handleLogout} />;
+  if (!backendToken) return null;
+
+  return (
+    <>
+      {!backendOnline && (
+        <div className="fixed top-0 left-0 right-0 z-[100] bg-amber-950/90 border-b border-amber-700/50 px-4 py-2 text-center">
+          <span className="text-amber-400 text-xs font-mono tracking-wide">
+            ⚠ BACKEND OFFLINE — Dashboard running in standalone mode. Start Docker to enable live data.
+          </span>
+        </div>
+      )}
+      <Dashboard token={backendToken} onLogout={handleLogout} />
+    </>
+  );
 }
 
 // ─────────────────────────────────────────────────────────────

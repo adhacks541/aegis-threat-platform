@@ -2,7 +2,7 @@
 
 > **[📖 Project Explanation](project_explanation.md)** | **[🧪 Testing Guide](testing_guide.md)**
 
-**Aegis** is a production-grade Security Information and Event Management (SIEM) system built for modern threat detection. It unifies high-performance log ingestion, rule-based detection, unsupervised machine learning, real-time WebSocket streaming, JWT-authenticated APIs, and automated incident response into a single, fully deployable platform.
+**Aegis** is a production-grade Security Information and Event Management (SIEM) system built for modern threat detection. It unifies high-performance log ingestion, rule-based detection, unsupervised machine learning, real-time WebSocket streaming, Clerk-authenticated access control, automated incident response, and a standalone-capable SOC dashboard into a single, fully deployable platform.
 
 ![SOC Dashboard](dashboard_preview.png)
 
@@ -12,28 +12,32 @@
 
 | Service | URL | Platform |
 |:--------|:----|:---------|
-| **SOC Dashboard** | [aegis-threat-platform-git-main-adhacks541s-projects.vercel.app](https://aegis-threat-platform-git-main-adhacks541s-projects.vercel.app) | Vercel |
+| **SOC Dashboard** | [aegis-threat-platform.vercel.app](https://aegis-threat-platform-git-main-adhacks541s-projects.vercel.app) | Vercel |
 | **Backend API** | [aegis-threat-platform.onrender.com](https://aegis-threat-platform.onrender.com) | Render |
 | **API Docs** | [aegis-threat-platform.onrender.com/docs](https://aegis-threat-platform.onrender.com/docs) | Render |
 
-> **Default credentials:** `admin` / `aegis-admin`
+> **Authentication:** Clerk-managed (Google, GitHub, Apple, or email sign-in). Access is restricted to allowlisted emails via server-side enforcement.
+> 
 > ⚠️ Free Render tier sleeps after 15 min of inactivity — first request may take ~30s to wake up.
+> 
+> 💡 **Standalone Mode:** If the backend is offline, the dashboard still renders with a subtle amber banner — the Vercel deployment is always presentable.
 
 ---
 
 ## 🚀 Key Features
+
+### 🔐 Clerk Authentication + Server-Side Access Control
+- **Clerk Integration**: Social logins (Google, GitHub, Apple) + email/password via `@clerk/nextjs` — replaces custom credential management.
+- **Token Exchange Flow**: Clerk JWT → `POST /api/v1/auth/clerk` → verified via Clerk JWKS (RS256) → internal backend JWT issued.
+- **Email Allowlist**: Server-side enforcement via `ALLOWED_EMAILS` — the backend fetches the user's verified primary email from Clerk's Backend API and checks it before issuing a token. Unauthorized users get a styled **ACCESS DENIED** page.
+- **Custom Sign-In Page**: Dark cybersecurity-themed Clerk `<SignIn />` component with comprehensive dark mode overrides at `/sign-in`.
+- **Backward Compatible**: The legacy `POST /api/v1/auth/token` (username/password) endpoint still works for API access and testing.
 
 ### 🧠 Advanced Detection Engine
 - **Hybrid Detection**: Combines traditional **Sigma-like rules** (SSH brute-force, firewall blocks) with an **Isolation Forest ML pipeline** for zero-day anomaly detection.
 - **Calibrated ML**: Model is a `sklearn.Pipeline(StandardScaler → IsolationForest)` — feature scaling is learned from data and persisted in `model.joblib`, eliminating hardcoded guesses.
 - **Explainable AI**: Every ML anomaly includes a real Z-score explanation (e.g., `"Anomalous Request Frequency (z=4.2)"`).
 - **Correlation Engine**: Stateful multi-stage attack detection (Brute Force → Successful Login → Privilege Escalation) using Redis.
-
-### 🔐 Security-First API
-- **JWT Authentication**: Every protected endpoint requires a Bearer token issued via OAuth2 password flow (`POST /api/v1/auth/token`).
-- **IP Blocking at Ingestion**: Blocked IPs receive HTTP 403 before any processing — enforced at the FastAPI layer via Redis.
-- **Rate Limiting**: Per-IP rate limiter on all ingest routes.
-- **Secrets via environment variables**: All credentials (JWT secret key, API tokens, bcrypt password hashes) are loaded from environment variables — never hardcoded.
 
 ### ⚡ Real-Time WebSocket Feed
 - **Architecture**: Worker → Redis pub/sub (`aegis:feed`) → FastAPI WebSocket → Browser
@@ -48,7 +52,8 @@
 
 ### 📊 SOC Dashboard
 - **Cyberpunk UI**: Immersive dark interface with holographic effects, retro-terminal log stream, and animated stat cards.
-- **Auth Gate**: Login screen with bcrypt-authenticated form before any data is visible.
+- **Clerk Auth Gate**: Social sign-in with custom dark-themed UI before any data is visible.
+- **Standalone Mode**: Dashboard renders even when backend is offline — shows empty state with amber `⚠ BACKEND OFFLINE` banner instead of crashing.
 - **Live Incident Tracker**: Real-time table of correlated attack chains.
 - **Alerts & Logs tabs**: Instantly updated via WebSocket — no page refresh needed.
 
@@ -60,13 +65,45 @@
 
 ---
 
+## 🔑 Authentication Architecture
+
+```
+┌───────────────────────────────────────────────────────────────┐
+│                      USER FLOW                                │
+├───────────────────────────────────────────────────────────────┤
+│                                                               │
+│  User visits aegis.vercel.app                                 │
+│       ↓                                                       │
+│  Clerk middleware → redirect to /sign-in                      │
+│       ↓                                                       │
+│  Clerk <SignIn /> (Google / GitHub / email)                    │
+│       ↓                                                       │
+│  Frontend: getToken() → Clerk JWT                             │
+│       ↓                                                       │
+│  POST /api/v1/auth/clerk { Authorization: Bearer <jwt> }      │
+│       ↓                                                       │
+│  Backend: Verify JWT via Clerk JWKS (RS256, 5-min cache)      │
+│       ↓                                                       │
+│  Backend: Fetch user email from Clerk Backend API             │
+│       ↓                                                       │
+│  Check email ∈ ALLOWED_EMAILS                                 │
+│       ↓                              ↓                        │
+│  ✅ Issue internal JWT          ❌ 403 → /unauthorized         │
+│       ↓                                                       │
+│  All dashboard API calls use internal JWT                     │
+└───────────────────────────────────────────────────────────────┘
+```
+
+---
+
 ## 🛠️ Tech Stack
 
 | Component | Technology | Purpose |
 | :--- | :--- | :--- |
-| **Frontend** | Next.js 16, React 19, Tailwind CSS 4 | SOC Dashboard + Auth UI |
+| **Frontend** | Next.js 16, React 19, Tailwind CSS 4 | SOC Dashboard + Clerk Auth UI |
+| **Authentication** | Clerk (`@clerk/nextjs`) + JWKS verification | Social login, access control, email allowlist |
 | **Backend API** | Python 3.11, FastAPI | Log Ingestion, REST API, WebSocket |
-| **Auth** | python-jose (JWT) + passlib (bcrypt) | Stateless authentication |
+| **Token System** | python-jose (JWT) + Clerk JWKS (RS256) | Stateless authentication (internal + Clerk) |
 | **Processing** | Python async workers | ETL, Detection, Correlation |
 | **Stream Buffer** | Redis Streams | Decouples ingestion from processing |
 | **Pub/Sub** | Redis pub/sub | Worker → WebSocket fan-out |
@@ -75,7 +112,7 @@
 | **ML** | Scikit-Learn (Pipeline + IsolationForest) | Calibrated anomaly detection |
 | **Frontend Hosting** | Vercel | Auto-deploy from `main` branch |
 | **Backend Hosting** | Render (Docker) | Auto-deploy from `main` branch |
-| **CI/CD** | GitHub Actions | Lint → Build → validate on every push |
+| **CI/CD** | GitHub Actions | Lint → Type-check → Build on every push |
 
 ---
 
@@ -100,33 +137,46 @@ Edit `.env` with your credentials:
 # Generate JWT secret:
 openssl rand -hex 32
 
-# Generate bcrypt password hash:
-python3 -c "from passlib.context import CryptContext; c=CryptContext(schemes=['bcrypt']); print(c.hash('your-password'))"
+# Clerk keys (from clerk.com → your app → API Keys):
+CLERK_SECRET_KEY=sk_test_...
+CLERK_JWKS_URL=https://your-app.clerk.accounts.dev/.well-known/jwks.json
+
+# Email allowlist (comma-separated):
+ALLOWED_EMAILS=you@gmail.com,teammate@company.com
 ```
 
-### 2. Run the Backend
+### 2. Run with Docker Compose
 
 ```bash
-cd backend
-python -m venv venv && source venv/bin/activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
-```
-
-### 3. Run the Frontend
-
-```bash
-cd frontend
-npm install
-NEXT_PUBLIC_API_URL=http://localhost:8000 npm run dev
+docker compose up --build -d
 ```
 
 | Service | URL |
 |---------|-----|
 | **Dashboard** | http://localhost:3000 |
 | **API Docs** | http://localhost:8000/docs |
+| **Kibana** | http://localhost:5601 |
 
-> Default login: `admin` / `aegis-admin`
+### 3. Run Frontend Standalone (development)
+
+```bash
+cd frontend
+cp .env.local.example .env.local   # Add your Clerk publishable key
+npm install
+npm run dev
+```
+
+Required `frontend/.env.local`:
+```bash
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
+CLERK_SECRET_KEY=sk_test_...
+NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
+NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
+NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/
+NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/
+NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_WS_URL=ws://localhost:8000
+```
 
 ### 4. Train the ML Model
 
@@ -156,14 +206,24 @@ curl http://localhost:8000/health
 
 All protected endpoints require `Authorization: Bearer <token>`.
 
-### Auth (public)
+### Auth — Clerk Token Exchange (primary)
+```http
+POST /api/v1/auth/clerk
+Authorization: Bearer <clerk-jwt>
+
+→ { "access_token": "...", "token_type": "bearer", "email": "user@example.com" }
+```
+Verifies Clerk JWT via JWKS, checks email allowlist, returns internal JWT.
+
+### Auth — Legacy Password Flow
 ```http
 POST /api/v1/auth/token
 Content-Type: application/x-www-form-urlencoded
 
-username=admin&password=aegis-admin
+username=admin&password=admin
+
+→ { "access_token": "...", "token_type": "bearer" }
 ```
-Returns `{ "access_token": "...", "token_type": "bearer" }`
 
 ### Ingest (protected)
 ```http
@@ -193,13 +253,13 @@ Each message is a JSON-encoded processed log entry pushed in real-time.
 ├── backend/
 │   ├── app/
 │   │   ├── api/v1/endpoints/
-│   │   │   ├── auth.py           # POST /auth/token  (JWT issuer)
+│   │   │   ├── auth.py           # POST /auth/token + POST /auth/clerk
 │   │   │   ├── ingest.py         # POST /ingest/*    (rate-limited, JWT-guarded)
 │   │   │   ├── dashboard.py      # GET  /dashboard/* (JWT-guarded, ES 8.x)
 │   │   │   └── feed.py           # WS   /ws/feed     (real-time pub/sub)
 │   │   ├── core/
 │   │   │   ├── config.py         # Settings (env-driven, pydantic-settings v2)
-│   │   │   ├── security.py       # JWT issuance + get_current_user dependency
+│   │   │   ├── security.py       # JWT issuance + Clerk JWKS verification
 │   │   │   └── limiter.py        # Per-IP rate limiter
 │   │   ├── models/               # Pydantic models (LogEntry, etc.)
 │   │   ├── response/             # YAML response policy
@@ -216,17 +276,23 @@ Each message is a JSON-encoded processed log entry pushed in real-time.
 │   ├── Dockerfile                # Python 3.11-slim image
 │   └── train_model.py            # Pipeline(StandardScaler → IsolationForest) trainer
 ├── frontend/
+│   ├── middleware.ts             # Clerk route protection (public: /sign-in, /sign-up)
 │   ├── next.config.ts            # API proxy rewrites + standalone output
 │   ├── vercel.json               # Vercel deployment config
 │   └── app/
-│       ├── page.tsx              # Dashboard (auth gate + WebSocket client)
+│       ├── layout.tsx            # ClerkProvider + dark theme globals
+│       ├── page.tsx              # Dashboard (Clerk auth gate + WebSocket client)
+│       ├── sign-in/
+│       │   └── [[...sign-in]]/page.tsx  # Custom dark Clerk sign-in page
+│       ├── unauthorized/
+│       │   └── page.tsx          # ACCESS DENIED page for non-allowlisted users
 │       └── components/
-│           └── LoginForm.tsx     # JWT login form
+│           └── LoginForm.tsx     # Legacy JWT login form (backup)
 ├── nginx/
 │   └── aegis.conf                # SSL termination + WebSocket upgrade config
 ├── tests/                        # 12-file test suite
 ├── .env.example                  # Secret template (commit this, NOT .env)
-├── .github/workflows/ci-cd.yml  # CI: lint → build (Render & Vercel auto-deploy)
+├── .github/workflows/ci-cd.yml  # CI: lint → type-check → build
 └── docker-compose.yml            # Local full-stack (ES, Redis, all services)
 ```
 
@@ -245,6 +311,9 @@ Each message is a JSON-encoded processed log entry pushed in real-time.
 | `SECRET_KEY` | `openssl rand -hex 32` |
 | `ADMIN_USERNAME` | `admin` |
 | `ADMIN_PASSWORD_HASH` | bcrypt hash of your password |
+| `CLERK_SECRET_KEY` | From [clerk.com](https://clerk.com) → API Keys |
+| `CLERK_JWKS_URL` | `https://your-app.clerk.accounts.dev/.well-known/jwks.json` |
+| `ALLOWED_EMAILS` | Comma-separated list of authorized emails |
 | `REDIS_URL` | `redis://:password@host:port` |
 | `ELASTICSEARCH_URL` | Elastic Cloud endpoint |
 | `ELASTICSEARCH_USERNAME` | `elastic` |
@@ -261,8 +330,12 @@ Each message is a JSON-encoded processed log entry pushed in real-time.
 
 | Variable | Value |
 |----------|-------|
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | `pk_test_...` from Clerk dashboard |
+| `CLERK_SECRET_KEY` | `sk_test_...` from Clerk dashboard |
 | `NEXT_PUBLIC_API_URL` | `https://aegis-threat-platform.onrender.com` |
 | `NEXT_PUBLIC_WS_URL` | `wss://aegis-threat-platform.onrender.com` |
+
+> **CORS**: The backend automatically allows all `*.vercel.app` origins via `allow_origin_regex`. No manual CORS URL updates needed for Vercel preview deployments.
 
 Every push to `main` automatically redeploys both services.
 
@@ -302,10 +375,13 @@ pytest ../tests/ -v --tb=short
 - [x] **SOC Dashboard**: Cyberpunk Next.js UI
 - [x] **Multi-Source Normalization**: Nginx, SSH, UFW
 - [x] **Comprehensive Test Suite**: 12 test files, full coverage
-- [x] **JWT Authentication**: Protects all API and WebSocket endpoints
+- [x] **Clerk Authentication**: Social login (Google/GitHub/Apple) + email allowlist
+- [x] **Server-Side Access Control**: Clerk JWKS verification + email allowlist enforcement
 - [x] **Real-Time WebSocket Feed**: Redis pub/sub → browser (zero polling)
 - [x] **Calibrated ML Scaler**: StandardScaler persisted in pipeline
 - [x] **Real iptables Enforcement**: TTL-synced block/unblock cycle
+- [x] **CORS Wildcard**: `allow_origin_regex` for all Vercel preview URLs
+- [x] **Standalone Mode**: Dashboard renders offline with backend-down banner
 - [x] **Cloud Deployment**: Render (backend) + Vercel (frontend) + Elastic Cloud + Redis Cloud
 - [x] **CI/CD Pipeline**: GitHub Actions — lint, type-check, and build on every push
 - [ ] Multi-Tenancy Support

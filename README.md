@@ -1,6 +1,6 @@
 # 🛡️ Aegis – Intelligent SIEM & Threat Response Platform
 
-> **[📖 Project Explanation](project_explanation.md)** | **[🧪 Testing Guide](testing_guide.md)**
+> **[📖 Project Explanation](project_explanation.md)** | **[🧪 Testing Guide](testing_guide.md)** | **[🚀 Simulation Guide](SIMULATION_GUIDE.md)**
 
 **Aegis** is a production-grade Security Information and Event Management (SIEM) system built for modern threat detection. It unifies high-performance log ingestion, rule-based detection, unsupervised machine learning, real-time WebSocket streaming, Clerk-authenticated access control, automated incident response, and a standalone-capable SOC dashboard into a single, fully deployable platform.
 
@@ -188,7 +188,20 @@ python3 backend/tools/generate_dataset.py
 python3 backend/train_model.py
 ```
 
-### 5. Health Check
+### 5. Simulate & Verify
+Once the system is running, you can simulate real attacks and verify detection:
+
+```bash
+# Run live dashboard simulation
+python3 backend/tools/simulate_dashboard_traffic.py
+
+# Run full technical system verification
+python3 backend/tools/verify_full_system.py
+```
+
+> See the **[🚀 Simulation Guide](SIMULATION_GUIDE.md)** for detailed attack scenarios.
+
+### 6. Health Check
 
 ```bash
 curl http://localhost:8000/health
@@ -293,6 +306,7 @@ Each message is a JSON-encoded processed log entry pushed in real-time.
 ├── tests/                        # 12-file test suite
 ├── .env.example                  # Secret template (commit this, NOT .env)
 ├── .github/workflows/ci-cd.yml  # CI: lint → type-check → build
+├── SIMULATION_GUIDE.md           # 🚀 NEW: Guide for running threat simulations
 └── docker-compose.yml            # Local full-stack (ES, Redis, all services)
 ```
 
